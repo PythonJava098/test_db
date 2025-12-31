@@ -2,7 +2,6 @@ fastapi
 uvicorn
 sqlalchemy
 osmnx
+haversine
 pydantic
-requests
-libsql-client 
-sqlalchemy-libsql
+libsql-client  # or just standard sqlite drivers if using local dev, but Turso needs special handling if using HTTP
