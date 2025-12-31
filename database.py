@@ -1,38 +1,28 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base  # Updated import for newer SQLAlchemy versions
 import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 1. Fetch variables from the environment
-# Default to a local SQLite file if variables aren't set (for local testing)
-DB_URL = os.environ.get("TURSO_DB_URL", "sqlite:///./smartcity.db")
-DB_TOKEN = os.environ.get("TURSO_DB_AUTH_TOKEN")
+# 1. Load variables
+db_url = os.getenv("DATABASE_URL")
+db_token = os.getenv("DATABASE_AUTH_TOKEN") # Ensure this matches your Env Var name
 
-# 2. Construct the connection string
-# If we have a token, we must append it to the URL.
-# Turso format: sqlite+libsql://<dbname>.turso.io?authToken=<token>
-if "libsql" in DB_URL and DB_TOKEN:
-    connection_string = f"{DB_URL}?authToken={DB_TOKEN}"
-else:
-    connection_string = DB_URL
+# 2. Fix the URL scheme for SQLAlchemy (libsql:// -> sqlite+libsql://)
+if db_url and db_url.startswith("libsql://"):
+    db_url = db_url.replace("libsql://", "sqlite+libsql://")
 
-# 3. Configure the Engine
-# check_same_thread=False is needed ONLY for local SQLite files, not for Turso/libsql
-connect_args = {}
-if "sqlite" in connection_string and "libsql" not in connection_string:
-    connect_args = {"check_same_thread": False}
+# 3. Configure connection args (pass the token here)
+connect_args = {"check_same_thread": False}
+if db_token:
+    connect_args["authToken"] = db_token
 
+# 4. Create the Engine
 engine = create_engine(
-    connection_string,
+    db_url,
     connect_args=connect_args
 )
 
+# 5. Create the Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# 6. Define Base here (This fixes the circular import)
 Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
