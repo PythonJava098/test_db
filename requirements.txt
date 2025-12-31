@@ -3,5 +3,5 @@ uvicorn
 sqlalchemy
 osmnx
 haversine
-pydantic
-libsql-client  # or just standard sqlite drivers if using local dev, but Turso needs special handling if using HTTP
+libsql-experimental
+python-dotenv
