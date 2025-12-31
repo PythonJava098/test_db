@@ -1,4 +1,8 @@
 fastapi
 uvicorn
 sqlalchemy
+osmnx
+pydantic
+requests
+libsql-client 
 sqlalchemy-libsql
