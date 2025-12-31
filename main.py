@@ -1,96 +1,103 @@
-from fastapi import FastAPI,HTTPException,Depends
-from typing import Annotated,List,Optional
-from pydantic import BaseModel
-from models import Pharmacy
-import models
-from database import engine,SessionLocal
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from fastapi.middleware.cors import CORSMiddleware
+from database import SessionLocal, Resource, init_db
+from geo_utils import fetch_amenities, calculate_coverage_score
+from pydantic import BaseModel
+from typing import List
 
-app=FastAPI()
-model.Base.metadata.create_all(bind=engine)
+app = FastAPI(title="Smart City Allocator")
 
+# Initialize DB on startup
+init_db()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # allow all for now
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class pharmacycreate(BaseModel):
-    
-    name:str
-    latitude:float
-    longitude:float
-
-class pharmacyreply(BaseModel):
-    id:int
-    class ConfigDict:
-        from_attributes=True
-
-class pharmacyupdate(BaseModel):
-    ID:Optional[int]=None
-    name:Optional[str]=None
-    latitude:Optional[float]=None
-    longitude:Optional[float]=None
-    
+# Dependency
 def get_db():
-    db=SessionLocal()
-    try :
+    db = SessionLocal()
+    try:
         yield db
     finally:
         db.close()
 
-db_depend=Annotated[Session,Depends(get_db)]
+# --- Schemas ---
+class LocationRequest(BaseModel):
+    lat: float
+    lon: float
+    radius_meters: int = 2000 # Default search radius
 
-@app.get("/")
-def root():
-    return {'message':'Smart City Resource Allocator'}
+class CoverageResponse(BaseModel):
+    latitude: float
+    longitude: float
+    coverage_score: float
+    nearest_resources: List[dict]
+    missing_amenities: List[str]
 
-@app.get("/pharmacy")
-def get_pharmacies(db: Session = Depends(get_db)):
-    pharmacies = db.query(Pharmacy).all()
-    return pharmacies
+# --- Endpoints ---
 
-
-@app.post('/create')
-def create_pharma(phar:pharmacycreate,db:Session=Depends(get_db)):
-    db_phar=model.Pharmacy(name=phar.name,latitude=phar.latitude,longitude=phar.longitude)
-    db.add(db_phar)
+@app.post("/ingest-neighborhood")
+def ingest_neighborhood_data(req: LocationRequest, db: Session = Depends(get_db)):
+    """
+    Scans a neighborhood for critical infrastructure (Hospitals, Pharmacies, Schools)
+    and saves them to Turso.
+    """
+    # Define what we consider "Critical Resources"
+    amenities_to_fetch = {
+        "amenity": ["hospital", "pharmacy", "clinic", "doctors", "school"]
+    }
+    
+    print(f"Fetching data for {req.lat}, {req.lon}...")
+    found_items = fetch_amenities(req.lat, req.lon, req.radius_meters, amenities_to_fetch)
+    
+    count = 0
+    for item in found_items:
+        # Simple deduplication check (optional but recommended)
+        exists = db.query(Resource).filter(
+            Resource.name == item['name'], 
+            Resource.lat == item['lat']
+        ).first()
+        
+        if not exists:
+            db_res = Resource(**item)
+            db.add(db_res)
+            count += 1
+            
     db.commit()
-    db.refresh(db_phar)
+    return {"status": "success", "resources_added": count, "total_found": len(found_items)}
+
+
+@app.get("/analyze-coverage", response_model=CoverageResponse)
+def analyze_coverage(lat: float, lon: float, db: Session = Depends(get_db)):
+    """
+    Calculates how well-served a specific coordinate is.
+    """
+    # 1. Query all resources from Turso (Filtering in Python for MVP)
+    # In a real app, you'd use a SQL WHERE clause for a rough bounding box first!
+    all_resources = db.query(Resource).all()
+    
+    # 2. Filter strictly by distance (e.g., 5km) using Haversine
+    nearby_resources = []
+    for r in all_resources:
+        dist = calculate_coverage_score(lat, lon, [r], max_dist_km=5.0)
+        if dist > 0: # It's within range
+            nearby_resources.append(r)
+
+    # 3. specific checks
+    hospitals = [r for r in nearby_resources if r.amenity_type == 'hospital']
+    pharmacies = [r for r in nearby_resources if r.amenity_type == 'pharmacy']
+    
+    # 4. Calculate Scores
+    hospital_score = calculate_coverage_score(lat, lon, hospitals)
+    pharmacy_score = calculate_coverage_score(lat, lon, pharmacies)
+    
+    avg_score = (hospital_score + pharmacy_score) / 2
+    
+    missing = []
+    if not hospitals: missing.append("Critical: No Hospital nearby")
+    if not pharmacies: missing.append("Warning: No Pharmacy nearby")
 
     return {
-        'message':'pharmacy created succesfully',
-        'id': db_phar.id
+        "latitude": lat,
+        "longitude": lon,
+        "coverage_score": avg_score,
+        "nearest_resources": [{"name": r.name, "type": r.amenity_type} for r in nearby_resources[:5]],
+        "missing_amenities": missing
     }
-
-@app.delete('/pharmacy/{id}')
-def delete_pharma(phar_id:int,db:Session=Depends(get_db)):
-    pharma=db.query(Pharmacy).filter(Pharmacy.id==phar_id).first()
-    if not pharma:
-        raise HTTPException(status_code=404,detail="Pharmacy not found")
-    db.delete(pharma)
-    db.commit()
-
-    return {'message':'ID deleted'}
-
-@app.put('/update/{phar_id}')
-def update_pharma(data:pharmacyupdate,phar_id=int,db:Session=Depends(get_db)):
-    pharmaupd=db.query(Pharmacy).filter(Pharmacy.id==phar_id).first()
-    if not  pharmaupd:
-        raise HTTPException(status_code=404,detail='Does not exist')
-    if data.ID is not None:
-        pharmaupd.id=data.ID
-    if data.name is not None:
-        pharmaupd.name=data.name
-    if data.latitude is not None:
-        pharmaupd.latitude=data.latitude
-    if data.longitude is not None:
-        pharmaupd.longitude=data.longitude
-
-    db.commit()
-    db.refresh(pharmaupd)
-    
