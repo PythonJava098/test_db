@@ -1,10 +1,11 @@
-from sqlalchemy import Integer,Float,String,Column,ForeignKey
+from sqlalchemy import Column, Integer, String, Float
 from database import Base
 
-class Pharmacy(Base):
-    __tablename__="pharmacy"
-
-    id=Column(Integer,primary_key=True,index=True)
-    name=Column(String,nullable=False,index=True)
-    latitude=Column(Float)
-    longitude=Column(Float)
+class Resource(Base):
+    __tablename__ = "resources"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    category = Column(String)  # e.g., "hospital", "atm", "school"
+    lat = Column(Float)
+    lon = Column(Float)
