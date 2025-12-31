@@ -1,31 +1,34 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
 
-# 1. Load variables
-db_url = os.getenv("DATABASE_URL")
-db_token = os.getenv("DATABASE_AUTH_TOKEN")
+# Load environment variables
+load_dotenv()
 
-# 2. Fix the URL scheme for SQLAlchemy if needed
-if db_url and db_url.startswith("libsql://"):
-    db_url = db_url.replace("libsql://", "sqlite+libsql://")
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL")
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-# 3. Configure connection args (Token goes here)
-connect_args = {"check_same_thread": False}
-if db_token:
-    connect_args["authToken"] = db_token
+# Construct the SQLAlchemy URL for Turso (libsql)
+# Format: sqlite+libsql://dbname.turso.io?authToken=...
+if TURSO_DATABASE_URL and TURSO_AUTH_TOKEN:
+    # Ensure URL starts with sqlite+libsql://
+    db_url = TURSO_DATABASE_URL.replace("libsql://", "sqlite+libsql://")
+    DATABASE_URL = f"{db_url}?authToken={TURSO_AUTH_TOKEN}"
+else:
+    # Fallback for local testing if env vars are missing
+    DATABASE_URL = "sqlite:///./local_city.db"
 
-# 4. Create Engine
-# Fallback to local file ONLY if no env var is found (prevents crash during local testing if vars missing)
-if not db_url:
-    print("WARNING: No DATABASE_URL found. Using local sqlite file.")
-    db_url = "sqlite:///./smart_city_local.db"
-
-engine = create_engine(
-    db_url,
-    connect_args=connect_args
-)
-
-# 5. Session & Base
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 Base = declarative_base()
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
