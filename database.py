@@ -1,32 +1,38 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base  # Updated import for newer SQLAlchemy versions
+import os
 
-# 1. Get BOTH credentials from Environment Variables
-# (You must add TURSO_DB_URL and TURSO_AUTH_TOKEN in Render Dashboard)
-TURSO_DB_URL = os.environ.get("TURSO_DB_URL")
-TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+# 1. Fetch variables from the environment
+# Default to a local SQLite file if variables aren't set (for local testing)
+DB_URL = os.environ.get("TURSO_DB_URL", "sqlite:///./smartcity.db")
+DB_TOKEN = os.environ.get("TURSO_DB_AUTH_TOKEN")
 
-# 2. Construct the Secure URL
-# Turso gives 'libsql://...', but SQLAlchemy needs 'sqlite+libsql://...'
-if TURSO_DB_URL:
-    db_url = TURSO_DB_URL.replace("libsql://", "sqlite+libsql://")
-    if "?secure=true" not in db_url:
-        db_url += "?secure=true"
+# 2. Construct the connection string
+# If we have a token, we must append it to the URL.
+# Turso format: sqlite+libsql://<dbname>.turso.io?authToken=<token>
+if "libsql" in DB_URL and DB_TOKEN:
+    connection_string = f"{DB_URL}?authToken={DB_TOKEN}"
 else:
-    # Fallback to a local file if variables are missing (prevents crash on local PC)
-    print("⚠️ Warning: No Turso URL found. Using local sqlite file.")
-    db_url = "sqlite:///./local_test.db"
+    connection_string = DB_URL
 
-# 3. Create the Engine
-# We only pass the token if it exists (prevents errors with local sqlite)
-connect_args = {'auth_token': TURSO_AUTH_TOKEN} if TURSO_AUTH_TOKEN else {}
+# 3. Configure the Engine
+# check_same_thread=False is needed ONLY for local SQLite files, not for Turso/libsql
+connect_args = {}
+if "sqlite" in connection_string and "libsql" not in connection_string:
+    connect_args = {"check_same_thread": False}
 
 engine = create_engine(
-    db_url,
-    connect_args=connect_args,
-    echo=True  # Set to False when you are done debugging
+    connection_string,
+    connect_args=connect_args
 )
 
-SessionLocal = sessionmaker(autoflush=False, autocommit=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
