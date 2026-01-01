@@ -60,3 +60,32 @@ h3 { margin: 0 0 5px 0; font-size: 0.9em; text-transform: uppercase; color: #7f8
 
 .btn-full { width: 100%; background: #2c3e50; color: white; margin-top: 10px; }
 .btn-full:hover { background: #1a252f; }
+
+
+/* Add to static/style.css */
+
+.popup-form {
+    display: flex; flex-direction: column; gap: 5px; min-width: 180px;
+}
+.popup-form input {
+    padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;
+}
+.popup-actions {
+    display: flex; gap: 5px; margin-top: 5px;
+}
+.btn-save {
+    background: #2ecc71; color: white; border: none; padding: 5px; 
+    border-radius: 3px; cursor: pointer; flex: 1;
+}
+.btn-del {
+    background: #e74c3c; color: white; border: none; padding: 5px; 
+    border-radius: 3px; cursor: pointer; flex: 1;
+}
+.coords {
+    font-size: 10px; color: #999; margin-top: 2px;
+}
+
+/* Custom Marker Pin */
+.custom-pin {
+    display: flex; justify-content: center; align-items: center;
+}
