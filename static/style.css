@@ -48,3 +48,15 @@ h3 { margin: 0 0 5px 0; font-size: 0.9em; text-transform: uppercase; color: #7f8
     text-align: center; background: #ecf0f1; color: #34495e; padding: 10px;
     border-radius: 5px; text-decoration: none; font-size: 0.9em;
 }
+
+/* Add to your existing style.css */
+.btn-group { display: flex; gap: 5px; margin-top: 10px; }
+.mode-btn { flex: 1; padding: 8px; font-size: 0.8em; border-radius: 4px; border:none; color:white; cursor:pointer; opacity: 0.8; }
+.mode-btn:hover { opacity: 1; transform: scale(1.05); }
+
+.red { background: #e74c3c; }
+.yellow { background: #f1c40f; color: #333; }
+.blue { background: #3498db; }
+
+.btn-full { width: 100%; background: #2c3e50; color: white; margin-top: 10px; }
+.btn-full:hover { background: #1a252f; }
