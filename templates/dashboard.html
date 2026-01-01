@@ -1,1 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart City Planner</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 
+    <div class="sidebar">
+        <h2>🏙️ City Planner</h2>
+        
+        <div class="card">
+            <h3>1. Import Data</h3>
+            <input type="text" id="cityName" placeholder="e.g. London, UK" value="Mumbai, India">
+            <select id="resourceType">
+                <option value="hospital">Hospitals</option>
+                <option value="atm">ATMs</option>
+                <option value="bank">Banks</option>
+                <option value="petrol_pump">Petrol Pumps</option>
+            </select>
+            <button onclick="seedData()">Fetch OSM Data</button>
+        </div>
+
+        <div class="card">
+            <h3>2. Simulation Settings</h3>
+            <label>Pop. Density (people/km²)</label>
+            <input type="range" id="densitySlider" min="100" max="5000" value="1000" oninput="updateDensityDisplay()">
+            <span id="densityValue">1000</span>
+        </div>
+
+        <div class="card">
+            <h3>3. Allocator Tool</h3>
+            <p>Click map to build new:</p>
+            <div class="btn-group">
+                <button onclick="setMode('hospital')" class="mode-btn">🏥 Hosp</button>
+                <button onclick="setMode('atm')" class="mode-btn">🏧 ATM</button>
+                <button onclick="setMode('petrol_pump')" class="mode-btn">⛽ Fuel</button>
+            </div>
+            <p id="modeStatus">Mode: View Only</p>
+        </div>
+
+        <div class="card">
+            <h3>Analytics</h3>
+            <div id="chart_div" style="width: 100%; height: 200px;"></div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="analysisPanel" class="hidden">
+        <h3>📍 Location Analysis</h3>
+        <div id="analysisContent">Click anywhere to analyze...</div>
+        <button onclick="closePanel()">Close</button>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
