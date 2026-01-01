@@ -1,12 +1,11 @@
 fastapi
 uvicorn
 sqlalchemy
-osmnx
-haversine
-libsql-experimental
+geopandas
+shapely
+python-multipart
 python-dotenv
+libsql-experimental
 jinja2
 httpx
-geopandas
-python-multipart
 shutil
