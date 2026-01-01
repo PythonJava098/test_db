@@ -1,9 +1,10 @@
 import os
 import shutil
-from fastapi import FastAPI, Request, Depends, UploadFile, File, Form
+import json
+from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
 from models import UrbanResource
@@ -49,10 +50,78 @@ def get_resources(density: int = 1000, db: Session = Depends(get_db)):
     for r in resources:
         rng = calculate_dynamic_range(r.category, r.capacity, density)
         data.append({
+            "id": r.id,
             "name": r.name,
             "category": r.category,
             "lat": r.latitude,
             "lon": r.longitude,
+            "capacity": r.capacity,
             "range": rng
         })
     return data
+
+# --- NEW FEATURE 1: ADD SERVICE ---
+@app.post("/api/add")
+def add_service(
+    data: dict, 
+    db: Session = Depends(get_db)
+):
+    """Adds a new service point manually."""
+    new_res = UrbanResource(
+        name=data.get("name", "New Service"),
+        category=data["category"],
+        latitude=data["lat"],
+        longitude=data["lon"],
+        capacity=data.get("capacity", 50)
+    )
+    db.add(new_res)
+    db.commit()
+    return {"message": "Service added successfully"}
+
+# --- NEW FEATURE 2: UPDATE CAPACITY ---
+@app.put("/api/update/{resource_id}")
+def update_capacity(
+    resource_id: int, 
+    data: dict, 
+    db: Session = Depends(get_db)
+):
+    """Updates the capacity of an existing service."""
+    resource = db.query(UrbanResource).filter(UrbanResource.id == resource_id).first()
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    
+    resource.capacity = data["capacity"]
+    db.commit()
+    return {"message": "Capacity updated"}
+
+# --- NEW FEATURE 3: EXPORT DATA ---
+@app.get("/api/export")
+def export_data(db: Session = Depends(get_db)):
+    """Generates a GeoJSON file of current data."""
+    resources = db.query(UrbanResource).all()
+    
+    features = []
+    for r in resources:
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [r.longitude, r.latitude]
+            },
+            "properties": {
+                "name": r.name,
+                "category": r.category,
+                "capacity": r.capacity
+            }
+        })
+    
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features
+    }
+    
+    file_path = "uploads/smart_city_export.geojson"
+    with open(file_path, "w") as f:
+        json.dump(geojson, f)
+        
+    return FileResponse(file_path, filename="smart_city_plan.geojson")
