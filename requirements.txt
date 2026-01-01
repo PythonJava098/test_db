@@ -7,3 +7,6 @@ libsql-experimental
 python-dotenv
 jinja2
 httpx
+geopandas
+python-multipart
+shutil
