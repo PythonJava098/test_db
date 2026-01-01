@@ -1,6 +1,6 @@
 import os
 import libsql_experimental as libsql
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
@@ -14,11 +14,22 @@ print("------------------------------------------------")
 if TURSO_URL and TURSO_TOKEN:
     print(f"🔌 CONNECTING TO TURSO: {TURSO_URL}")
     
-    # We use a custom creator to bypass the 'sqlite+libsql' dialect issue
+    # --- THE FIX IS HERE ---
     def get_conn():
-        return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+        """
+        Creates a Turso connection and patches it to look like a standard
+        SQLite connection so SQLAlchemy doesn't crash.
+        """
+        conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+        
+        # Patch: SQLAlchemy tries to call create_function, which libsql lacks.
+        # We add a dummy function to bypass the error.
+        if not hasattr(conn, "create_function"):
+            conn.create_function = lambda *args, **kwargs: None
+            
+        return conn
     
-    # Use standard sqlite dialect but inject our custom connection
+    # Use standard sqlite dialect but inject our patched connection
     DATABASE_URL = "sqlite://"
     engine = create_engine(DATABASE_URL, creator=get_conn, connect_args={"check_same_thread": False})
 else:
