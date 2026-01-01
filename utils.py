@@ -2,89 +2,66 @@ import osmnx as ox
 from haversine import haversine, Unit
 from sqlalchemy.orm import Session
 from models import UrbanResource
+import math
 
-def fetch_and_seed_data(city_name: str, resource_type: str, db: Session):
+# Base ranges in km (Assuming standard density)
+BASE_RANGES = {
+    "hospital": 5.0,
+    "atm": 1.0,
+    "bank": 2.0,
+    "petrol_pump": 3.0
+}
+
+STANDARD_DENSITY = 1000  # people per sq km (Reference baseline)
+STANDARD_CAPACITY = 50   # Baseline capacity
+
+def calculate_dynamic_range(category: str, capacity: int, density: int) -> float:
     """
-    Fetches POIs (Points of Interest) from OpenStreetMap via OSMnx
-    and saves them to Turso.
+    Calculates service range based on population density and facility capacity.
+    - Higher Density -> Lower Range (Service gets crowded)
+    - Higher Capacity -> Higher Range
     """
-    print(f"Fetching {resource_type} data for {city_name}...")
+    base = BASE_RANGES.get(category, 2.0)
     
-    # Map common terms to OSM tags
-    tags = {}
-    if resource_type == "hospital":
-        tags = {"amenity": "hospital"}
-    elif resource_type == "atm":
-        tags = {"amenity": "atm"}
-    elif resource_type == "school":
-        tags = {"amenity": "school"}
-    else:
-        tags = {"amenity": resource_type}
+    # Avoid division by zero
+    density = max(density, 100)
+    
+    # Logic: Range increases with capacity, decreases with sqrt of density ratio
+    density_factor = math.sqrt(STANDARD_DENSITY / density)
+    capacity_factor = capacity / STANDARD_CAPACITY
+    
+    return round(base * density_factor * capacity_factor, 2)
 
-    # Fetch geometries
+def fetch_osm_data(city: str, resource_type: str, db: Session):
+    """Fetch real data from OpenStreetMap"""
+    tags = {"amenity": resource_type}
     try:
-        gdf = ox.features_from_place(city_name, tags=tags)
-    except Exception as e:
-        print(f"Error fetching data: {e}")
+        gdf = ox.features_from_place(city, tags=tags)
+    except Exception:
         return 0
 
     count = 0
     for _, row in gdf.iterrows():
-        # Handle Points vs Polygons (use centroid for polygons)
-        if row.geometry.geom_type == 'Point':
-            lat = row.geometry.y
-            lon = row.geometry.x
-        else:
-            lat = row.geometry.centroid.y
-            lon = row.geometry.centroid.x
+        # Get centroid if polygon
+        geo = row.geometry
+        lat = geo.y if geo.geom_type == 'Point' else geo.centroid.y
+        lon = geo.x if geo.geom_type == 'Point' else geo.centroid.x
         
-        # Simple name extraction
-        name = row.get('name', 'Unknown')
-        if not isinstance(name, str): name = "Unknown"
-
-        # Check duplication (naive check by name + lat)
-        exists = db.query(UrbanResource).filter(
-            UrbanResource.name == name, 
-            UrbanResource.latitude == lat
-        ).first()
-
+        name = str(row.get('name', 'Unknown'))
+        
+        # Naive duplication check
+        exists = db.query(UrbanResource).filter_by(name=name, latitude=lat).first()
         if not exists:
-            resource = UrbanResource(
-                name=name,
-                category=resource_type,
-                latitude=lat,
-                longitude=lon,
+            # Assign random capacity for existing real-world items (simulation)
+            cap = 50 
+            if resource_type == 'hospital': cap = 80
+            
+            res = UrbanResource(
+                name=name, category=resource_type, 
+                latitude=lat, longitude=lon, capacity=cap,
                 address=str(row.get('addr:street', ''))
             )
-            db.add(resource)
+            db.add(res)
             count += 1
-    
     db.commit()
     return count
-
-def find_nearby(lat: float, lon: float, radius_km: float, db: Session):
-    """
-    Finds resources within a specific radius using Haversine formula.
-    Note: Doing this in Python because basic SQLite lacks efficient spatial index.
-    For massive datasets, this logic should move to PostGIS.
-    """
-    resources = db.query(UrbanResource).all()
-    nearby_resources = []
-
-    user_location = (lat, lon)
-
-    for r in resources:
-        resource_location = (r.latitude, r.longitude)
-        distance = haversine(user_location, resource_location, unit=Unit.KILOMETERS)
-        
-        if distance <= radius_km:
-            nearby_resources.append({
-                "name": r.name,
-                "category": r.category,
-                "distance_km": round(distance, 2),
-                "location": {"lat": r.latitude, "lon": r.longitude}
-            })
-            
-    # Sort by distance
-    nearby_resources.sort(key=lambda x: x['distance_km'])
-    return nearby_resources
