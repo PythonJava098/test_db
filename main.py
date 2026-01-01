@@ -78,21 +78,41 @@ def add_service(
     db.commit()
     return {"message": "Service added successfully"}
 
-# --- NEW FEATURE 2: UPDATE CAPACITY ---
+# --- UPDATE SERVICE (Expanded for Name, Lat, Lon, Capacity) ---
 @app.put("/api/update/{resource_id}")
-def update_capacity(
+def update_service(
     resource_id: int, 
     data: dict, 
     db: Session = Depends(get_db)
 ):
-    """Updates the capacity of an existing service."""
+    """Updates Name, Capacity, and Location."""
     resource = db.query(UrbanResource).filter(UrbanResource.id == resource_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
     
-    resource.capacity = data["capacity"]
+    # Update fields if provided
+    if "name" in data: resource.name = data["name"]
+    if "capacity" in data: resource.capacity = data["capacity"]
+    if "lat" in data: resource.latitude = data["lat"]
+    if "lon" in data: resource.longitude = data["lon"]
+    
     db.commit()
-    return {"message": "Capacity updated"}
+    return {"message": "Service updated successfully"}
+
+# --- DELETE SERVICE (New) ---
+@app.delete("/api/delete/{resource_id}")
+def delete_service(
+    resource_id: int, 
+    db: Session = Depends(get_db)
+):
+    """Deletes a service permanently."""
+    resource = db.query(UrbanResource).filter(UrbanResource.id == resource_id).first()
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    
+    db.delete(resource)
+    db.commit()
+    return {"message": "Service deleted"}
 
 # --- NEW FEATURE 3: EXPORT DATA ---
 @app.get("/api/export")
