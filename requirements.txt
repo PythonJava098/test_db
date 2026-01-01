@@ -5,3 +5,5 @@ osmnx
 haversine
 libsql-experimental
 python-dotenv
+jinja2
+httpx
