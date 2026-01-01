@@ -7,6 +7,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -16,13 +18,29 @@
         
         <div class="card">
             <h3>Population Density</h3>
-            <p class="desc">Adjust density to see how service range shrinks in crowded areas.</p>
+            <p class="desc">Adjust density to recalculate effective ranges.</p>
             <input type="range" id="densitySlider" min="100" max="5000" value="1000">
             <div class="range-labels">
                 <span>Rural</span>
                 <span id="densityVal" class="highlight">1000</span>
                 <span>Metro</span>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>Builder Mode</h3>
+            <p class="desc">Click map to add services.</p>
+            <div class="btn-group">
+                <button onclick="setMode('hospital')" class="mode-btn red">🏥 Hosp</button>
+                <button onclick="setMode('school')" class="mode-btn yellow">🏫 Sch</button>
+                <button onclick="setMode('atm')" class="mode-btn blue">🏧 ATM</button>
+            </div>
+            <div id="mode-status" style="margin-top:5px; font-size:0.8em; color:#666;">Status: View Only</div>
+        </div>
+
+        <div class="card">
+            <h3>Actions</h3>
+            <button onclick="exportData()" class="btn-full">⬇ Export GeoJSON</button>
         </div>
 
         <div class="card">
