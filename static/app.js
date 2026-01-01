@@ -1,160 +1,69 @@
 // Init Map
-const map = L.map('map').setView([19.0760, 72.8777], 12); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
+const map = L.map('map').setView([20.5937, 78.9629], 5); // Default View: India
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap & CartoDB'
 }).addTo(map);
 
-// Google Charts Init
+// Google Charts
 google.charts.load('current', {'packages':['corechart']});
-google.charts.setOnLoadCallback(drawChart);
+google.charts.setOnLoadCallback(fetchData);
 
-// State
-let allocationMode = null;
-let resources = [];
-let resourceLayerGroup = L.layerGroup().addTo(map); // Layer to hold markers/circles
+let layerGroup = L.layerGroup().addTo(map);
 
-// 1. Load Resources (Triggered by slider or page load)
-async function loadResources() {
-    const density = document.getElementById('densitySlider').value;
-    
-    // Fetch data with the current density to get correct ranges
-    const res = await fetch(`/api/resources?density=${density}`);
-    resources = await res.json();
-    
-    renderMapObjects();
-    drawChart(); 
-}
-
-// 2. Render Markers and Range Circles
-function renderMapObjects() {
-    resourceLayerGroup.clearLayers(); // Remove old circles/markers
-
-    resources.forEach(r => {
-        let color = 'blue';
-        if (r.category === 'hospital') color = 'red';
-        if (r.category === 'petrol_pump') color = 'orange';
-        if (r.category === 'atm') color = 'green';
-
-        // A. Draw the Center Point
-        const marker = L.circleMarker([r.latitude, r.longitude], {
-            radius: 5, fillColor: color, color: '#fff', weight: 1, opacity: 1, fillOpacity: 1
-        }).bindPopup(`
-            <b>${r.name}</b><br>
-            Type: ${r.category}<br>
-            Capacity: ${r.capacity}<br>
-            Range: ${r.effective_range_km} km
-        `);
-
-        // B. Draw the Range Circle (The visual coverage area)
-        const rangeCircle = L.circle([r.latitude, r.longitude], {
-            radius: r.effective_range_km * 1000, // Convert km to meters for Leaflet
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.1, // Very transparent
-            weight: 1 // Thin border
-        });
-
-        resourceLayerGroup.addLayer(marker);
-        resourceLayerGroup.addLayer(rangeCircle);
-    });
-}
-
-// 3. Map Click Handler (Analysis OR Allocation)
-map.on('click', async function(e) {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
-
-    // A. Allocation Mode
-    if (allocationMode) {
-        const name = prompt(`Name for new ${allocationMode}?`, "New Facility");
-        if (!name) return;
-
-        // NEW: Ask for capacity
-        const capacityStr = prompt(`Enter Capacity (1-100) for ${name}:`, "75");
-        const capacity = parseInt(capacityStr) || 50; // Default to 50 if invalid
-
-        await fetch('/api/allocate', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                name: name,
-                category: allocationMode,
-                lat: lat, lon: lon,
-                capacity: capacity 
-            })
-        });
-        
-        loadResources(); // Refresh map to show new item
-        setMode(null); // Exit build mode
-        return;
-    }
-
-    // B. Analysis Mode (Clicking to check a specific house/location)
-    const density = document.getElementById('densitySlider').value;
-    const res = await fetch(`/api/analyze?lat=${lat}&lon=${lon}&density=${density}`);
-    const data = await res.json();
-
-    document.getElementById('analysisPanel').style.display = 'block';
-    
-    let html = `<p><b>Density:</b> ${density} ppl/km²</p>`;
-    
-    if (data.is_desert) {
-        html += `<p class="danger" style="color:red; font-weight:bold;">⚠️ SERVICE DESERT</p>`;
-        html += `<small>You are outside the effective range of all services.</small>`;
-    } else {
-        html += `<p class="safe" style="color:green; font-weight:bold;">✅ COVERED</p>`;
-        html += `Services: ${data.covered_services.join(', ')}`;
-    }
-
-    html += `<hr><b>Nearest Facilities:</b><br>`;
-    data.nearby_analysis.forEach(n => {
-        // Add checkmark if this specific facility covers the user
-        const icon = n.in_coverage ? "✅" : "❌";
-        html += `<small>${icon} <b>${n.name}</b> (${n.distance}km)</small><br>`;
-    });
-
-    document.getElementById('analysisContent').innerHTML = html;
+// Slider Listener
+document.getElementById('densitySlider').addEventListener('input', function(e) {
+    document.getElementById('densityVal').innerText = e.target.value;
+    fetchData(); // Refresh data on slider move
 });
 
-// 4. Density Slider Listener
-// When user drags slider, we immediately fetch new ranges and redraw circles
-document.getElementById('densitySlider').addEventListener('input', function() {
-    document.getElementById('densityValue').innerText = this.value;
-    loadResources(); // This triggers the re-draw of circles
-});
-
-// Helper Functions
-function setMode(mode) {
-    allocationMode = mode;
-    document.getElementById('modeStatus').innerText = mode ? `Mode: Build ${mode.toUpperCase()}` : "Mode: View Only";
+async function fetchData() {
+    const density = document.getElementById('densitySlider').value;
+    
+    try {
+        const res = await fetch(`/api/resources?density=${density}`);
+        const data = await res.json();
+        updateVisuals(data);
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-function closePanel() {
-    document.getElementById('analysisPanel').style.display = 'none';
-}
+function updateVisuals(data) {
+    layerGroup.clearLayers();
+    
+    if (data.length === 0) return;
 
-async function seedData() {
-    const city = document.getElementById('cityName').value;
-    const type = document.getElementById('resourceType').value;
-    alert("Fetching data... please wait.");
-    await fetch(`/api/seed?city=${city}&type=${type}`, { method: 'POST' });
-    loadResources();
-    alert("Data Imported!");
-}
+    // 1. Draw Map Items
+    data.forEach(item => {
+        let color = '#3498db'; // Default Blue
+        if (item.category === 'hospital') color = '#e74c3c'; // Red
+        if (item.category === 'school') color = '#f1c40f';   // Yellow
+        if (item.category === 'petrol_pump') color = '#2ecc71'; // Green
 
-function drawChart() {
-    if(resources.length === 0) return;
+        // Center Point
+        L.circleMarker([item.lat, item.lon], {
+            radius: 4, color: '#fff', fillColor: color, fillOpacity: 1, weight: 1
+        }).bindPopup(`<b>${item.name}</b><br>${item.category}`).addTo(layerGroup);
+
+        // Range Circle
+        L.circle([item.lat, item.lon], {
+            radius: item.range * 1000, // km to meters
+            color: color, fillColor: color, fillOpacity: 0.1, weight: 1
+        }).addTo(layerGroup);
+    });
+
+    // 2. Draw Chart
     let counts = {};
-    resources.forEach(r => { counts[r.category] = (counts[r.category] || 0) + 1; });
+    data.forEach(d => counts[d.category] = (counts[d.category]||0)+1);
+    
     let chartData = [['Category', 'Count']];
-    for (const [key, value] of Object.entries(counts)) {
-        chartData.push([key, value]);
-    }
-    var data = google.visualization.arrayToDataTable(chartData);
-    var options = { title: 'Resource Distribution', pieHole: 0.4, legend: 'bottom' };
-    var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-    chart.draw(data, options);
-}
+    for (let [k,v] of Object.entries(counts)) chartData.push([k,v]);
 
-// Initial Load
-loadResources();
+    let chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+    chart.draw(google.visualization.arrayToDataTable(chartData), {
+        pieHole: 0.4,
+        colors: ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71'],
+        legend: {position: 'bottom'},
+        chartArea: {width: '100%', height: '80%'}
+    });
+}
