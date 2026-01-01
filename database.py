@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-# Force reload of .env file
+# Load env vars (for local testing)
 load_dotenv(override=True)
 
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
@@ -12,11 +12,11 @@ TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 print("------------------------------------------------")
 if TURSO_URL and TURSO_TOKEN:
     print(f"🔌 CONNECTING TO TURSO: {TURSO_URL}")
+    # Fix protocol for SQLAlchemy
     db_url = TURSO_URL.replace("libsql://", "sqlite+libsql://")
     DATABASE_URL = f"{db_url}?authToken={TURSO_TOKEN}"
 else:
     print("⚠️  TURSO VARS NOT FOUND. USING LOCAL SQLITE.")
-    print("   (Check your .env file or environment variables)")
     DATABASE_URL = "sqlite:///./local_city.db"
 print("------------------------------------------------")
 
