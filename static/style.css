@@ -1,45 +1,103 @@
-body { margin: 0; display: flex; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Analysis Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 
-/* Sidebar */
-.sidebar {
-    width: 320px;
-    background: #f8f9fa;
-    padding: 20px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    z-index: 1001;
-    overflow-y: auto;
-}
+    <div class="sidebar">
+        <div class="brand">🏙️ UrbanMind</div>
+        
+        <div class="card">
+            <h3>Simulation Control</h3>
+            <label>Population Density</label>
+            <input type="range" id="densitySlider" min="100" max="5000" value="1000">
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; color:#666;">
+                <span>Rural (100)</span>
+                <span id="densityVal">1000</span>
+                <span>Metro (5000)</span>
+            </div>
+        </div>
 
-/* Map */
-#map { flex-grow: 1; height: 100%; }
+        <div class="card">
+            <h3>Analytics</h3>
+            <div id="chart_div" style="height: 200px;"></div>
+        </div>
+        
+        <div class="card">
+            <a href="/" style="text-decoration:none; color:#3498db; font-size:0.9em;">&larr; Upload New Data</a>
+        </div>
+    </div>
 
-/* Cards */
-.card {
-    background: white; padding: 15px; border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #ddd;
-}
-h2 { margin-top: 0; color: #2c3e50; }
-h3 { margin-top: 0; font-size: 14px; color: #7f8c8d; text-transform: uppercase; }
+    <div id="map"></div>
 
-/* Inputs & Buttons */
-input, select, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-button { background: #3498db; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
-button:hover { background: #2980b9; }
+    <script>
+        // Initialize Map
+        const map = L.map('map').setView([20.5937, 78.9629], 5);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap & CartoDB'
+        }).addTo(map);
 
-/* Allocator Buttons */
-.btn-group { display: flex; gap: 5px; }
-.mode-btn { font-size: 12px; }
+        google.charts.load('current', {'packages':['corechart']});
+        google.charts.setOnLoadCallback(fetchData);
 
-/* Analysis Panel Floating */
-#analysisPanel {
-    position: absolute; bottom: 20px; right: 20px;
-    background: white; padding: 20px; width: 300px;
-    border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.2);
-    z-index: 1002; display: none;
-}
-.hidden { display: none !important; }
-.safe { color: green; font-weight: bold; }
-.danger { color: red; font-weight: bold; }
+        let layerGroup = L.layerGroup().addTo(map);
+
+        document.getElementById('densitySlider').addEventListener('input', function(e) {
+            document.getElementById('densityVal').innerText = e.target.value;
+            fetchData();
+        });
+
+        async function fetchData() {
+            const density = document.getElementById('densitySlider').value;
+            const res = await fetch(`/api/resources?density=${density}`);
+            const data = await res.json();
+            
+            updateMap(data);
+            updateChart(data);
+        }
+
+        function updateMap(data) {
+            layerGroup.clearLayers();
+            
+            data.forEach(item => {
+                const color = item.category === 'hospital' ? '#e74c3c' : 
+                              item.category === 'school' ? '#f1c40f' : '#3498db';
+                
+                // Marker
+                L.circleMarker([item.latitude, item.longitude], {
+                    radius: 5, color: 'white', fillColor: color, fillOpacity: 1, weight: 1
+                }).bindPopup(`<b>${item.name}</b><br>${item.category}`).addTo(layerGroup);
+
+                // Range Circle
+                L.circle([item.latitude, item.longitude], {
+                    radius: item.range * 1000,
+                    color: color, fillColor: color, fillOpacity: 0.1, weight: 1
+                }).addTo(layerGroup);
+            });
+        }
+
+        function updateChart(data) {
+            if(data.length === 0) return;
+            let counts = {};
+            data.forEach(d => counts[d.category] = (counts[d.category]||0)+1);
+            
+            let chartData = [['Category', 'Count']];
+            for (let [k,v] of Object.entries(counts)) chartData.push([k,v]);
+            
+            var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+            chart.draw(google.visualization.arrayToDataTable(chartData), {
+                pieHole: 0.4, 
+                colors: ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71'],
+                legend: {position: 'bottom'}
+            });
+        }
+    </script>
+</body>
+</html>
