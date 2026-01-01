@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Analysis Dashboard</title>
+    <title>UrbanMind Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -15,89 +15,26 @@
         <div class="brand">🏙️ UrbanMind</div>
         
         <div class="card">
-            <h3>Simulation Control</h3>
-            <label>Population Density</label>
+            <h3>Population Density</h3>
+            <p class="desc">Adjust density to see how service range shrinks in crowded areas.</p>
             <input type="range" id="densitySlider" min="100" max="5000" value="1000">
-            <div style="display:flex; justify-content:space-between; font-size:0.8em; color:#666;">
-                <span>Rural (100)</span>
-                <span id="densityVal">1000</span>
-                <span>Metro (5000)</span>
+            <div class="range-labels">
+                <span>Rural</span>
+                <span id="densityVal" class="highlight">1000</span>
+                <span>Metro</span>
             </div>
         </div>
 
         <div class="card">
-            <h3>Analytics</h3>
-            <div id="chart_div" style="height: 200px;"></div>
+            <h3>Distribution</h3>
+            <div id="chart_div"></div>
         </div>
         
-        <div class="card">
-            <a href="/" style="text-decoration:none; color:#3498db; font-size:0.9em;">&larr; Upload New Data</a>
-        </div>
+        <a href="/" class="btn-secondary">← Upload More Data</a>
     </div>
 
     <div id="map"></div>
 
-    <script>
-        // Initialize Map
-        const map = L.map('map').setView([20.5937, 78.9629], 5);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap & CartoDB'
-        }).addTo(map);
-
-        google.charts.load('current', {'packages':['corechart']});
-        google.charts.setOnLoadCallback(fetchData);
-
-        let layerGroup = L.layerGroup().addTo(map);
-
-        document.getElementById('densitySlider').addEventListener('input', function(e) {
-            document.getElementById('densityVal').innerText = e.target.value;
-            fetchData();
-        });
-
-        async function fetchData() {
-            const density = document.getElementById('densitySlider').value;
-            const res = await fetch(`/api/resources?density=${density}`);
-            const data = await res.json();
-            
-            updateMap(data);
-            updateChart(data);
-        }
-
-        function updateMap(data) {
-            layerGroup.clearLayers();
-            
-            data.forEach(item => {
-                const color = item.category === 'hospital' ? '#e74c3c' : 
-                              item.category === 'school' ? '#f1c40f' : '#3498db';
-                
-                // Marker
-                L.circleMarker([item.latitude, item.longitude], {
-                    radius: 5, color: 'white', fillColor: color, fillOpacity: 1, weight: 1
-                }).bindPopup(`<b>${item.name}</b><br>${item.category}`).addTo(layerGroup);
-
-                // Range Circle
-                L.circle([item.latitude, item.longitude], {
-                    radius: item.range * 1000,
-                    color: color, fillColor: color, fillOpacity: 0.1, weight: 1
-                }).addTo(layerGroup);
-            });
-        }
-
-        function updateChart(data) {
-            if(data.length === 0) return;
-            let counts = {};
-            data.forEach(d => counts[d.category] = (counts[d.category]||0)+1);
-            
-            let chartData = [['Category', 'Count']];
-            for (let [k,v] of Object.entries(counts)) chartData.push([k,v]);
-            
-            var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-            chart.draw(google.visualization.arrayToDataTable(chartData), {
-                pieHole: 0.4, 
-                colors: ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71'],
-                legend: {position: 'bottom'}
-            });
-        }
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
