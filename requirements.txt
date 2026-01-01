@@ -8,4 +8,3 @@ python-dotenv
 libsql-experimental
 jinja2
 httpx
-shutil
