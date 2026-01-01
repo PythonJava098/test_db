@@ -1,1 +1,45 @@
+body { margin: 0; display: flex; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
 
+/* Sidebar */
+.sidebar {
+    width: 320px;
+    background: #f8f9fa;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 1001;
+    overflow-y: auto;
+}
+
+/* Map */
+#map { flex-grow: 1; height: 100%; }
+
+/* Cards */
+.card {
+    background: white; padding: 15px; border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #ddd;
+}
+h2 { margin-top: 0; color: #2c3e50; }
+h3 { margin-top: 0; font-size: 14px; color: #7f8c8d; text-transform: uppercase; }
+
+/* Inputs & Buttons */
+input, select, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+button { background: #3498db; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+button:hover { background: #2980b9; }
+
+/* Allocator Buttons */
+.btn-group { display: flex; gap: 5px; }
+.mode-btn { font-size: 12px; }
+
+/* Analysis Panel Floating */
+#analysisPanel {
+    position: absolute; bottom: 20px; right: 20px;
+    background: white; padding: 20px; width: 300px;
+    border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    z-index: 1002; display: none;
+}
+.hidden { display: none !important; }
+.safe { color: green; font-weight: bold; }
+.danger { color: red; font-weight: bold; }
