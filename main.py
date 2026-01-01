@@ -23,8 +23,29 @@ def dashboard(request: Request):
 # --- DATA ENDPOINTS ---
 
 @app.get("/api/resources")
-def get_resources(db: Session = Depends(get_db)):
-    return db.query(UrbanResource).all()
+def get_resources(density: int = 1000, db: Session = Depends(get_db)):
+    """
+    Returns resources with their calculated effective range 
+    based on the provided population density.
+    """
+    resources = db.query(UrbanResource).all()
+    
+    response_data = []
+    for r in resources:
+        # Calculate how far this specific facility reaches
+        eff_range = calculate_dynamic_range(r.category, r.capacity, density)
+        
+        response_data.append({
+            "id": r.id,
+            "name": r.name,
+            "category": r.category,
+            "latitude": r.latitude,
+            "longitude": r.longitude,
+            "capacity": r.capacity,
+            "effective_range_km": eff_range # <--- Sending this to frontend
+        })
+        
+    return response_data
 
 @app.post("/api/seed")
 def seed_data(city: str, type: str, db: Session = Depends(get_db)):
