@@ -1,178 +1,183 @@
 /* =========================================
    1. GLOBAL & RESET
    ========================================= */
+:root {
+    --primary: #2563eb;       /* Modern Blue */
+    --primary-dark: #1e40af;
+    --secondary: #64748b;     /* Slate Gray */
+    --bg-sidebar: #f1f5f9;    /* Light Gray Blue */
+    --bg-card: #ffffff;
+    --text-main: #1e293b;
+    --text-sub: #64748b;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+}
+
 body {
     margin: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     height: 100vh;
-    overflow: hidden; /* Default lock */
+    overflow: hidden;
+    color: var(--text-main);
 }
 
 /* =========================================
-   2. HOME PAGE (Landing) - The "Glass" Look
+   2. HOME PAGE (Glassmorphism)
    ========================================= */
 .home-body {
-    /* Distinct background for home page */
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100vw;
+    background: radial-gradient(circle at top left, #1e3a8a, #0f172a);
+    display: flex; justify-content: center; align-items: center; width: 100vw;
 }
 
 .glass-container {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 40px;
-    border-radius: 16px;
-    width: 400px;
+    border-radius: 24px;
+    width: 420px;
     text-align: center;
     color: white;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.glass-container h1 { margin: 0; font-size: 2em; }
-.subtext { font-size: 0.9em; color: #ccc; margin-bottom: 20px; }
-
-/* Home Form Elements */
-.upload-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
-.upload-form label { font-size: 0.85em; color: #ddd; margin-left: 2px; }
-.upload-form select, .upload-form input { padding: 10px; border-radius: 5px; border: none; font-family: inherit; }
-.upload-form button {
-    margin-top: 10px; padding: 12px; border: none; border-radius: 5px;
-    background: #00d2ff; color: #002d40; font-weight: bold; cursor: pointer;
-    transition: 0.3s;
+.glass-container h1 { font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
+.upload-form label { font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; font-weight: 600; }
+.upload-form select, .upload-form input { 
+    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.1); 
+    color: white; padding: 12px; margin-bottom: 15px; border-radius: 8px; outline: none;
 }
-.upload-form button:hover { background: #3a7bd5; color: white; }
-.skip-link { display: block; margin-top: 15px; color: #00d2ff; text-decoration: none; font-size: 0.85em; }
+.upload-form select:focus, .upload-form input:focus { border-color: var(--primary); }
 
 /* =========================================
-   3. DASHBOARD LAYOUT (Sidebar + Map)
+   3. DASHBOARD LAYOUT
    ========================================= */
-/* Only apply flex row to dashboard body, not home body */
-body:not(.home-body) {
-    display: flex;
-    flex-direction: row;
-}
+body:not(.home-body) { display: flex; flex-direction: row; }
 
 .sidebar {
-    width: 340px;
-    background: #f8f9fa;
+    width: 360px;
+    background: var(--bg-sidebar);
     padding: 20px;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     z-index: 1000;
-    
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    
-    /* SCROLL FIX */
-    overflow-y: auto;
-    height: 100%;
-    box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 16px;
+    overflow-y: auto; height: 100%; box-sizing: border-box;
+    border-right: 1px solid #e2e8f0;
 }
 
-#map {
-    flex-grow: 1;
-    height: 100%;
-    width: 100%;
+#map { flex-grow: 1; height: 100%; width: 100%; }
+
+/* =========================================
+   4. SIDEBAR COMPONENTS
+   ========================================= */
+.brand {
+    font-size: 1.5em; font-weight: 800; color: #0f172a; 
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    letter-spacing: -0.5px;
+}
+
+.card {
+    background: var(--bg-card);
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    border: 1px solid #f1f5f9;
+    transition: transform 0.2s;
+}
+.card:hover { border-color: #cbd5e1; }
+
+h3 {
+    margin: 0 0 12px 0;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+
+.desc { font-size: 0.85em; color: #64748b; line-height: 1.5; margin-bottom: 15px; }
+
+/* --- Density Inputs --- */
+.density-control { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.density-control input {
+    width: 80px; padding: 8px 12px; border: 2px solid #e2e8f0;
+    border-radius: 8px; font-weight: 700; color: var(--primary); font-size: 1em; text-align: center;
+}
+.density-control input:focus { border-color: var(--primary); outline: none; }
+.unit { font-size: 0.85em; color: #94a3b8; font-weight: 600; }
+
+/* Custom Range Slider */
+input[type=range] {
+    -webkit-appearance: none; width: 100%; background: transparent; margin-bottom: 15px;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+    background: var(--primary); cursor: pointer; margin-top: -8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid white;
+}
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%; height: 6px; cursor: pointer; background: #e2e8f0; border-radius: 3px;
+}
+
+/* --- Buttons --- */
+button { font-family: inherit; transition: all 0.2s ease; }
+.btn-group { display: flex; gap: 10px; }
+
+.btn-action {
+    flex: 1; padding: 10px; border: none; border-radius: 10px;
+    cursor: pointer; font-size: 0.9em; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+.primary { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3); }
+.primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+
+.secondary { background: white; border: 2px solid #e2e8f0; color: var(--text-sub); }
+.secondary:hover { background: #f8fafc; border-color: #cbd5e1; color: var(--text-main); }
+
+/* --- Builder Dropdown --- */
+select#builderService {
+    width: 100%; padding: 12px; border-radius: 10px;
+    border: 2px solid #e2e8f0; background: white;
+    font-size: 0.95em; color: var(--text-main); cursor: pointer;
+    margin-bottom: 10px; appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat; background-position: right 15px top 50%; background-size: 10px auto;
+}
+select:focus { border-color: var(--primary); outline: none; }
+
+.btn-full {
+    width: 100%; background: #0f172a; color: white; padding: 12px;
+    border: none; border-radius: 10px; cursor: pointer; font-weight: 600;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+.btn-full:hover { background: #334155; }
+
+/* Status Text */
+#mode-status {
+    background: #e2e8f0; padding: 8px; border-radius: 6px;
+    text-align: center; font-weight: 600; font-size: 0.8em; margin-top: 10px;
 }
 
 /* =========================================
-   4. DASHBOARD COMPONENTS (Cards, Buttons)
+   5. POPUP & MAP ELEMENTS
    ========================================= */
-.brand { font-size: 1.5em; font-weight: 700; color: #2c3e50; margin-bottom: 5px; }
+.leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 0; }
+.leaflet-popup-content { margin: 15px; }
 
-.card {
-    background: white; padding: 15px; border-radius: 8px;
-    border: 1px solid #e1e4e8; flex-shrink: 0;
-}
+.popup-form { display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+.popup-form b { font-size: 1.1em; color: var(--primary); border-bottom: 2px solid #f1f5f9; padding-bottom: 5px; margin-bottom: 5px; }
+.popup-form input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9em; }
+.popup-actions { display: flex; gap: 8px; margin-top: 5px; }
+.btn-save { background: var(--success); color: white; border: none; padding: 8px; border-radius: 6px; flex: 1; cursor: pointer; font-weight: 600; }
+.btn-del { background: var(--danger); color: white; border: none; padding: 8px; border-radius: 6px; flex: 1; cursor: pointer; font-weight: 600; }
 
-h3 { margin: 0 0 10px 0; font-size: 0.85em; text-transform: uppercase; color: #7f8c8d; }
-.desc { font-size: 0.8em; color: #666; margin-bottom: 10px; line-height: 1.4; }
-.highlight { color: #3498db; font-weight: bold; }
-.range-labels { display: flex; justify-content: space-between; font-size: 0.75em; color: #999; margin-top: 5px; }
+.crosshair-cursor-enabled { cursor: crosshair !important; }
 
-/* Inputs */
-input[type=range] { width: 100%; }
-
-/* Buttons */
-.btn-group { display: flex; gap: 5px; margin-top: 5px; }
-.mode-btn { flex: 1; padding: 10px; font-size: 0.85em; border-radius: 4px; border: none; color: white; cursor: pointer; opacity: 0.9; }
-.mode-btn:hover { opacity: 1; transform: translateY(-1px); }
-
-.red { background: #e74c3c; }
-.yellow { background: #f1c40f; color: #333; }
-.blue { background: #3498db; }
-
-.btn-full { width: 100%; background: #2c3e50; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; }
-.btn-full:hover { background: #1a252f; }
-
-.btn-secondary { display: block; text-align: center; background: #
-
-/* Add/Update these sections in your style.css */
-
-/* 1. Custom Cursor for Builder Mode */
-.crosshair-cursor-enabled {
-    cursor: crosshair !important;
-}
-
-/* 2. Density Control Layout */
-.density-control {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.density-control input[type="number"] {
-    width: 80px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1em;
-    font-weight: bold;
-    color: #2c3e50;
-}
-
-.unit {
-    font-size: 0.9em;
-    color: #7f8c8d;
-    font-weight: 600;
-}
-
-/* 3. Action Buttons (Calculate/Hide) */
-.btn-action {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.85em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    transition: 0.2s;
-}
-
-.primary { background: #3498db; color: white; }
-.primary:hover { background: #2980b9; }
-
-.secondary { background: #ecf0f1; color: #7f8c8d; }
-.secondary:hover { background: #dcdcdc; }
-
-/* 4. Builder Dropdown */
-#builderService {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    background: white;
-    font-size: 0.9em;
-}
-
-/* 5. Icons in Buttons (Optional fix) */
-i { pointer-events: none; }
+/* Scrollbar */
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
