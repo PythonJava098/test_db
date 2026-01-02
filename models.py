@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, Text
 from database import Base
 
 class UrbanResource(Base):
@@ -6,7 +6,17 @@ class UrbanResource(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    category = Column(String)  # hospital, school, atm
-    latitude = Column(Float)
-    longitude = Column(Float)
-    capacity = Column(Integer, default=50)
+    category = Column(String)  
+    
+    # Coordinates for Points
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    
+    # Capacity / Range
+    capacity = Column(Integer, default=50) 
+    
+    # NEW: Geometry Type ('point' or 'polygon')
+    geom_type = Column(String, default="point")
+    
+    # NEW: Stores JSON coordinates for polygons (e.g., "[[lat,lon],[lat,lon]...]")
+    shape_data = Column(Text, nullable=True)
