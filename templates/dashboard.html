@@ -42,26 +42,28 @@
 
         <div class="card">
             <h3>Builder Mode</h3>
-            <p class="desc">Select a service and click the map to build.</p>
+            <p class="desc">Build services or draw custom zones.</p>
             
             <div class="builder-controls">
                 <select id="builderService">
-                    <option value="" disabled selected>-- Select Service --</option>
+                    <option value="" disabled selected>-- Select Type --</option>
                     <option value="hospital">🏥 Hospital</option>
                     <option value="school">🏫 School</option>
                     <option value="atm">🏧 ATM</option>
-                    <option value="bank">🏦 Bank</option>
-                    <option value="petrol_pump">⛽ Petrol Pump</option>
-                    <option value="police">👮 Police Station</option>
-                    <option value="fire_station">🚒 Fire Station</option>
-                    <option value="park">🌳 Park</option>
+                    <option value="park">🌳 Park / Green Zone</option>
+                    <option value="commercial">🏢 Commercial Zone</option>
+                    <option value="residential">🏠 Residential Zone</option>
                 </select>
                 
-                <button id="toggleBuildBtn" onclick="toggleBuildMode()" class="btn-full">
-                    Enable Build Mode
+                <button id="toggleBuildBtn" onclick="toggleBuildMode()" class="btn-full" style="margin-bottom:5px;">
+                    📍 Place Point Service
+                </button>
+                
+                <button id="togglePolyBtn" onclick="togglePolyMode()" class="btn-full secondary">
+                    ✏️ Draw Custom Area
                 </button>
             </div>
-            <div id="mode-status" style="margin-top:8px; font-size:0.8em; color:#666;">Status: View Only</div>
+            <div id="mode-status">Status: View Only</div>
         </div>
 
         <div class="card">
