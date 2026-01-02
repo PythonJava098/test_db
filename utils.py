@@ -19,7 +19,7 @@ def calculate_dynamic_range(category: str, capacity: int, density: int) -> float
     capacity_factor = capacity / STANDARD_CAPACITY
     return round(base * density_factor * capacity_factor, 2)
 
-def process_shapefile(zip_path: str, default_category: str, db: Session):
+def process_shapefile(zip_path: str, default_category: str, db: Session, session_id: str):
     extract_folder = zip_path.replace(".zip", "")
     
     try:
@@ -59,6 +59,7 @@ def process_shapefile(zip_path: str, default_category: str, db: Session):
                 if geo.geom_type == 'Point':
                     # Save as Point
                     res = UrbanResource(
+                        session_id=session_id,
                         name=name, category=category, geom_type="point",
                         latitude=geo.y, longitude=geo.x, capacity=50
                     )
@@ -76,6 +77,7 @@ def process_shapefile(zip_path: str, default_category: str, db: Session):
                     coords = [[p[1], p[0]] for p in poly.exterior.coords]
                     
                     res = UrbanResource(
+                        session_id=session_id,
                         name=name, category=category, geom_type="polygon",
                         shape_data=json.dumps(coords), capacity=50
                     )
