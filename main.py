@@ -57,19 +57,32 @@ def get_resources(density: int = 1000, db: Session = Depends(get_db)):
 
 @app.post("/api/add")
 def add_service(data: dict, db: Session = Depends(get_db)):
-    """Handles adding Points OR Polygons manually"""
+    """Handles adding Points OR Polygons"""
+    
+    # CASE 1: Polygon (Used for Project Boundary)
     if data.get("geom_type") == "polygon":
+        # 'coordinates' is expected from the frontend
+        coords_json = json.dumps(data.get("coordinates"))
+        
         new_res = UrbanResource(
-            name=data.get("name"), category=data["category"], 
-            geom_type="polygon", shape_data=json.dumps(data["coordinates"]),
+            name=data.get("name"), 
+            category=data["category"], 
+            geom_type="polygon", 
+            shape_data=coords_json,
             capacity=data.get("capacity", 50)
         )
+        
+    # CASE 2: Point (Standard Service)
     else:
         new_res = UrbanResource(
-            name=data.get("name"), category=data["category"], 
-            geom_type="point", latitude=data["lat"], longitude=data["lon"],
+            name=data.get("name"), 
+            category=data["category"], 
+            geom_type="point", 
+            latitude=data["lat"], 
+            longitude=data["lon"],
             capacity=data.get("capacity", 50)
         )
+        
     db.add(new_res)
     db.commit()
     return {"message": "Added"}
