@@ -1,244 +1,214 @@
 // Init Map
 const map = L.map('map').setView([20.5937, 78.9629], 5);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap & CartoDB'
-}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
 google.charts.load('current', {'packages':['corechart']});
-google.charts.setOnLoadCallback(() => calculateCoverage()); // Load initial data
+google.charts.setOnLoadCallback(() => calculateCoverage());
 
 // Layers
 let markerLayer = L.layerGroup().addTo(map);
-let unionLayer = L.layerGroup().addTo(map); 
-let projectAreaLayer = L.layerGroup().addTo(map);
+let unionLayer = L.layerGroup().addTo(map);
+let polyLayer = L.layerGroup().addTo(map); // For Custom Shapes
 
-let isBuildMode = false;
-let selectedServiceType = null;
+// Drawing State
+let mode = null; // 'point' or 'polygon'
+let selectedType = null;
+let tempPolyPoints = []; // Stores clicks for polygon
+let tempPolyLine = null; // Visual guide line
 
-// --- 1. DENSITY CONTROLS SYNC ---
-const slider = document.getElementById('densitySlider');
-const input = document.getElementById('densityInput');
+// --- COLOR GENERATOR ---
+function getColor(cat) {
+    const map = {
+        'hospital': '#e74c3c', 'school': '#f1c40f', 'atm': '#3498db',
+        'bank': '#9b59b6', 'park': '#27ae60', 'commercial': '#e67e22',
+        'residential': '#95a5a6', 'police': '#34495e'
+    };
+    // Return mapped color OR generate a consistent hash color for unknown types
+    if(map[cat]) return map[cat];
+    let hash = 0;
+    for (let i = 0; i < cat.length; i++) hash = cat.charCodeAt(i) + ((hash << 5) - hash);
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return '#' + "00000".substring(0, 6 - c.length) + c;
+}
 
-// Sync Slider -> Input
-slider.addEventListener('input', function() {
-    input.value = this.value;
-});
-
-// Sync Input -> Slider
-input.addEventListener('input', function() {
-    let val = parseInt(this.value);
-    if(val > 5000) val = 5000;
-    if(val < 100) val = 100;
-    slider.value = val;
-});
-
-// --- 2. CALCULATE / HIDE ---
+// --- VISUALIZER ---
 async function calculateCoverage() {
-    const density = input.value;
+    const density = document.getElementById('densityInput').value;
     try {
-        // Show loading state if needed
         const res = await fetch(`/api/resources?density=${density}`);
         const data = await res.json();
-        updateVisuals(data, true); // true = show ranges
-    } catch (err) { console.error(err); }
+        updateVisuals(data, true);
+    } catch(e) { console.error(e); }
 }
 
-function clearCoverage() {
-    unionLayer.clearLayers(); // Remove the blobs
-    // We re-fetch data but tell visualizer to SKIP drawing ranges
-    // This keeps markers but hides the confusing circles
-    markerLayer.eachLayer(layer => {
-        if (layer.options.className === 'range-circle') {
-            map.removeLayer(layer);
-        }
-    });
-}
-
-// --- 3. VISUALIZER ---
 function updateVisuals(data, showRanges) {
     markerLayer.clearLayers();
     unionLayer.clearLayers();
-    projectAreaLayer.clearLayers();
+    polyLayer.clearLayers();
     
     if (data.length === 0) return;
 
-    // Draw Boundary
-    const points = turf.featureCollection(data.map(d => turf.point([d.lon, d.lat])));
-    if(points.features.length > 0) {
-        const bbox = turf.bbox(points);
-        L.geoJSON(turf.bboxPolygon(bbox), {
-            style: { color: "#333", dashArray: "5, 5", fill: false, weight: 2 }
-        }).addTo(projectAreaLayer);
-    }
+    // Group by category to handle colors & unions
+    const categories = [...new Set(data.map(d => d.category))];
 
-    // Group & Draw
-    // Define colors for new services too
-    const colors = {
-        'hospital': '#e74c3c', 'school': '#f1c40f', 'atm': '#3498db',
-        'bank': '#9b59b6', 'petrol_pump': '#2ecc71', 'police': '#34495e',
-        'fire_station': '#d35400', 'park': '#27ae60'
-    };
-
-    // Get unique categories present in data
-    const presentCategories = [...new Set(data.map(item => item.category))];
-    
-    presentCategories.forEach(cat => {
+    categories.forEach(cat => {
         const items = data.filter(d => d.category === cat);
-        let color = colors[cat] || '#95a5a6'; // Default gray for unknown
-        let polys = [];
+        const color = getColor(cat);
+        let rangePolys = [];
 
         items.forEach(item => {
-            // MARKER
-            const customIcon = L.divIcon({
-                className: 'custom-pin',
-                html: `<div style="background-color:${color}; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
-                iconSize: [18, 18]
-            });
+            // 1. HANDLE POLYGONS (Custom Areas)
+            if (item.geom_type === 'polygon') {
+                L.polygon(item.shape_data, {
+                    color: color, fillColor: color, fillOpacity: 0.4, weight: 2
+                }).bindPopup(`<b>${item.name}</b><br>${cat.toUpperCase()}<br><button onclick="deleteService(${item.id})">Delete</button>`).addTo(polyLayer);
+            } 
+            // 2. HANDLE POINTS (Standard Services)
+            else {
+                // Marker
+                const icon = L.divIcon({
+                    className: 'custom-pin',
+                    html: `<div style="background-color:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`
+                });
+                
+                L.marker([item.lat, item.lon], { icon: icon, draggable: true })
+                    .bindPopup(createEditPopup(item))
+                    .on('dragend', (e) => updateService(item.id, {lat: e.target.getLatLng().lat, lon: e.target.getLatLng().lng}))
+                    .addTo(markerLayer);
 
-            const marker = L.marker([item.lat, item.lon], {
-                icon: customIcon, draggable: true
-            }).bindPopup(createEditPopup(item)).addTo(markerLayer);
-
-            marker.on('dragend', async (e) => {
-                await updateService(item.id, { lat: e.target.getLatLng().lat, lon: e.target.getLatLng().lng });
-            });
-
-            // Prepare Range Polygon
-            if (showRanges) {
-                let circle = turf.circle([item.lon, item.lat], item.range, {steps: 64, units: 'kilometers'});
-                polys.push(circle);
+                // Range Circle (only for points)
+                if (showRanges) {
+                    rangePolys.push(turf.circle([item.lon, item.lat], item.range, {steps:32, units:'kilometers'}));
+                }
             }
         });
 
-        // UNION POLYGON
-        if (showRanges && polys.length > 0) {
-            let merged = polys[0];
-            for (let i = 1; i < polys.length; i++) merged = turf.union(merged, polys[i]);
-            L.geoJSON(merged, {
-                style: { color: color, fillColor: color, fillOpacity: 0.2, weight: 1 },
-                interactive: false 
-            }).addTo(unionLayer);
+        // Union Logic for Points
+        if (showRanges && rangePolys.length > 0) {
+            try {
+                let merged = rangePolys[0];
+                for(let i=1; i<rangePolys.length; i++) merged = turf.union(merged, rangePolys[i]);
+                L.geoJSON(merged, {
+                    style: { color: color, fillColor: color, fillOpacity: 0.15, weight: 1 },
+                    interactive: false
+                }).addTo(unionLayer);
+            } catch(e) { console.log("Union error", e); }
         }
     });
 
     drawChart(data);
 }
 
-// --- 4. BUILDER MODE ---
+// --- BUILDER MODES ---
+
+// 1. Point Mode
 function toggleBuildMode() {
-    const select = document.getElementById('builderService');
-    const btn = document.getElementById('toggleBuildBtn');
-    const status = document.getElementById('mode-status');
-    const mapContainer = document.getElementById('map');
-
-    if (!isBuildMode) {
-        // ENABLE
-        if (!select.value) { alert("Please select a service type first!"); return; }
-        
-        isBuildMode = true;
-        selectedServiceType = select.value;
-        
-        btn.innerText = "❌ Stop Building";
-        btn.style.background = "#e74c3c";
-        
-        status.innerHTML = `Building: <b>${selectedServiceType.toUpperCase()}</b>`;
-        status.style.color = "green";
-        
-        // Add custom cursor class
-        L.DomUtil.addClass(mapContainer, 'crosshair-cursor-enabled');
-        map.dragging.disable(); // Optional: Lock map drag to prevent accidental moves while clicking? 
-        // Actually, usually better to keep drag enabled but change cursor.
-        map.dragging.enable(); 
-
-    } else {
-        // DISABLE
-        isBuildMode = false;
-        selectedServiceType = null;
-        
-        btn.innerText = "Enable Build Mode";
-        btn.style.background = "#2c3e50";
-        status.innerText = "Status: View Only";
-        status.style.color = "#666";
-        
-        L.DomUtil.removeClass(mapContainer, 'crosshair-cursor-enabled');
-    }
+    resetModes();
+    const sel = document.getElementById('builderService');
+    if(!sel.value) { alert("Select type first"); return; }
+    
+    mode = 'point';
+    selectedType = sel.value;
+    updateStatus(`Click map to place <b>${selectedType}</b>`);
+    document.getElementById('map').style.cursor = 'crosshair';
 }
 
-// Map Click to Build
+// 2. Polygon Mode
+function togglePolyMode() {
+    resetModes();
+    const sel = document.getElementById('builderService');
+    if(!sel.value) { alert("Select type first"); return; }
+    
+    mode = 'polygon';
+    selectedType = sel.value;
+    tempPolyPoints = [];
+    updateStatus(`Click to add points. <b>Double-Click</b> to finish.`);
+    document.getElementById('map').style.cursor = 'crosshair';
+}
+
+function resetModes() {
+    mode = null; selectedType = null; tempPolyPoints = [];
+    if(tempPolyLine) map.removeLayer(tempPolyLine);
+    document.getElementById('map').style.cursor = 'default';
+    updateStatus("View Only");
+}
+
+function updateStatus(msg) {
+    document.getElementById('mode-status').innerHTML = msg;
+}
+
+// Map Interactions
 map.on('click', async function(e) {
-    if (!isBuildMode) return;
+    if (!mode) return;
 
-    const name = prompt(`Name for new ${selectedServiceType}?`, "New Facility");
-    if (!name) return;
-    
-    await fetch('/api/add', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            name: name, category: selectedServiceType,
-            lat: e.latlng.lat, lon: e.latlng.lng, capacity: 50
-        })
-    });
-    
-    calculateCoverage(); // Refresh
-});
-
-// Update Dropdown Change
-document.getElementById('builderService').addEventListener('change', function() {
-    if (isBuildMode) {
-        // Update the active type immediately if mode is already on
-        selectedServiceType = this.value;
-        document.getElementById('mode-status').innerHTML = `Building: <b>${selectedServiceType.toUpperCase()}</b>`;
+    if (mode === 'point') {
+        // ADD POINT
+        const name = prompt("Facility Name?", "New " + selectedType);
+        if(!name) return;
+        
+        await apiAdd({
+            name: name, category: selectedType, geom_type: 'point',
+            lat: e.latlng.lat, lon: e.latlng.lng
+        });
+        resetModes();
+    } 
+    else if (mode === 'polygon') {
+        // ADD POLYGON VERTEX
+        tempPolyPoints.push([e.latlng.lat, e.latlng.lng]);
+        
+        // Draw visual guide
+        if(tempPolyLine) map.removeLayer(tempPolyLine);
+        tempPolyLine = L.polygon(tempPolyPoints, {color: 'red', dashArray: '5,5'}).addTo(map);
     }
 });
 
+map.on('dblclick', async function(e) {
+    if (mode === 'polygon' && tempPolyPoints.length > 2) {
+        // FINISH POLYGON
+        map.dragging.disable(); // Prevent zoom on dblclick
+        setTimeout(() => map.dragging.enable(), 500);
+        
+        const name = prompt("Zone Name?", "New Zone");
+        if(name) {
+            await apiAdd({
+                name: name, category: selectedType, geom_type: 'polygon',
+                coordinates: tempPolyPoints
+            });
+        }
+        resetModes();
+    }
+});
 
-// --- 5. HELPERS (CRUD & Chart) ---
-// (Same as previous code, just ensure they exist)
-function createEditPopup(item) {
-    return `
-        <div class="popup-form">
-            <b>${item.category.toUpperCase()}</b>
-            <input type="text" id="name-${item.id}" value="${item.name}">
-            <label>Capacity:</label>
-            <input type="number" id="cap-${item.id}" value="${item.capacity}">
-            <div class="popup-actions">
-                <button onclick="saveEdit(${item.id})" class="btn-save">💾</button>
-                <button onclick="deleteService(${item.id})" class="btn-del">🗑️</button>
-            </div>
-        </div>`;
-}
-
-window.saveEdit = async function(id) {
-    const newName = document.getElementById(`name-${id}`).value;
-    const newCap = document.getElementById(`cap-${id}`).value;
-    await updateService(id, { name: newName, capacity: parseInt(newCap) });
-};
-
-async function updateService(id, payload) {
-    await fetch(`/api/update/${id}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'},
+// --- API HELPERS ---
+async function apiAdd(payload) {
+    await fetch('/api/add', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
     calculateCoverage();
 }
 
+function createEditPopup(item) {
+    return `<div style="text-align:center"><b>${item.name}</b><br>${item.category}<br>
+    <button onclick="deleteService(${item.id})" style="background:#ef4444;color:white;border:none;padding:5px;">Delete</button></div>`;
+}
+
 window.deleteService = async function(id) {
-    if(!confirm("Delete?")) return;
-    await fetch(`/api/delete/${id}`, { method: 'DELETE' });
-    map.closePopup();
-    calculateCoverage();
-};
+    if(confirm("Delete?")) {
+        await fetch(`/api/delete/${id}`, {method: 'DELETE'});
+        calculateCoverage();
+    }
+}
+
+// Chart & Input Sync (Same as before)
+document.getElementById('densitySlider').addEventListener('input', function() { document.getElementById('densityInput').value = this.value; });
+document.getElementById('densityInput').addEventListener('input', function() { document.getElementById('densitySlider').value = this.value; });
 
 function drawChart(data) {
     let counts = {};
     data.forEach(d => counts[d.category] = (counts[d.category]||0)+1);
     let chartData = [['Category', 'Count']];
     for (let [k,v] of Object.entries(counts)) chartData.push([k,v]);
-    
     var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-    chart.draw(google.visualization.arrayToDataTable(chartData), {
-        pieHole: 0.4, legend: 'none', chartArea: {width: '90%', height: '90%'}
-    });
+    chart.draw(google.visualization.arrayToDataTable(chartData), { pieHole: 0.4, legend: 'none', chartArea:{width:'90%',height:'90%'} });
 }
-window.exportData = function() { window.location.href = "/api/export"; }
