@@ -1,91 +1,107 @@
-/* Base */
-body { font-family: 'Inter', sans-serif; margin: 0; height: 100vh; overflow: hidden; }
-.home-body {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    display: flex; justify-content: center; align-items: center;
+/* static/style.css */
+
+/* 1. Global Layout */
+body { 
+    margin: 0; 
+    display: flex; 
+    font-family: 'Inter', sans-serif; 
+    height: 100vh; /* Lock full screen height */
+    overflow: hidden; /* Prevent the whole page from scrolling */
 }
 
-/* Glassmorphism Home */
-.glass-container {
-    background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
-    padding: 40px; border-radius: 16px; width: 400px; text-align: center; color: white;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.glass-container h1 { margin: 0; }
-.subtext { font-size: 0.9em; color: #ccc; margin-bottom: 20px; }
-
-/* Form */
-.upload-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
-select, input { padding: 10px; border-radius: 5px; border: none; }
-button {
-    margin-top: 10px; padding: 12px; border: none; border-radius: 5px;
-    background: #00d2ff; color: #002d40; font-weight: bold; cursor: pointer;
-    transition: 0.3s;
-}
-button:hover { background: #3a7bd5; color: white; }
-.skip-link { display: block; margin-top: 15px; color: #00d2ff; text-decoration: none; font-size: 0.85em; }
-
-/* Dashboard Layout */
-body:not(.home-body) { display: flex; }
+/* 2. Sidebar (The Dashboard) - NOW SCROLLABLE */
 .sidebar {
-    width: 320px; background: #f8f9fa; padding: 20px;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 1000;
-    display: flex; flex-direction: column; gap: 20px;
-}
-#map { flex-grow: 1; height: 100%; }
+    width: 340px; 
+    background: #f8f9fa; 
+    padding: 20px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1); 
+    z-index: 1000;
+    
+    /* FLEX LAYOUT */
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px;
 
-/* Cards */
-.brand { font-size: 1.5em; font-weight: 700; color: #2c3e50; }
-.card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e1e4e8; }
-h3 { margin: 0 0 5px 0; font-size: 0.9em; text-transform: uppercase; color: #7f8c8d; }
-.desc { font-size: 0.8em; color: #666; margin-bottom: 10px; }
-.highlight { color: #3498db; font-weight: bold; }
-.range-labels { display: flex; justify-content: space-between; font-size: 0.75em; color: #999; margin-top: 5px; }
-
-/* Chart */
-#chart_div { height: 200px; width: 100%; }
-.btn-secondary {
-    text-align: center; background: #ecf0f1; color: #34495e; padding: 10px;
-    border-radius: 5px; text-decoration: none; font-size: 0.9em;
+    /* SCROLLING MAGIC FIX */
+    overflow-y: auto;  /* Allows scrolling if content is too long */
+    height: 100%;      /* Takes full height */
+    box-sizing: border-box; /* Ensures padding doesn't break layout */
 }
 
-/* Add to your existing style.css */
-.btn-group { display: flex; gap: 5px; margin-top: 10px; }
-.mode-btn { flex: 1; padding: 8px; font-size: 0.8em; border-radius: 4px; border:none; color:white; cursor:pointer; opacity: 0.8; }
-.mode-btn:hover { opacity: 1; transform: scale(1.05); }
+/* 3. The Map */
+#map { 
+    flex-grow: 1; /* Fills remaining space */
+    height: 100%; 
+}
 
+/* 4. Cards & Text */
+.brand { 
+    font-size: 1.5em; 
+    font-weight: 700; 
+    color: #2c3e50; 
+    margin-bottom: 5px;
+}
+
+.card { 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    border: 1px solid #e1e4e8;
+    flex-shrink: 0; /* Prevents cards from squishing */
+}
+
+h3 { 
+    margin: 0 0 10px 0; 
+    font-size: 0.85em; 
+    text-transform: uppercase; 
+    color: #7f8c8d; 
+    letter-spacing: 0.5px;
+}
+
+.desc { 
+    font-size: 0.8em; 
+    color: #666; 
+    margin-bottom: 10px; 
+    line-height: 1.4;
+}
+
+/* 5. Inputs & Buttons */
+.btn-group { display: flex; gap: 5px; margin-top: 5px; }
+.mode-btn { 
+    flex: 1; padding: 10px; font-size: 0.85em; 
+    border-radius: 4px; border: none; color: white; 
+    cursor: pointer; opacity: 0.9; transition: 0.2s;
+}
+.mode-btn:hover { opacity: 1; transform: translateY(-1px); }
+
+/* Colors */
 .red { background: #e74c3c; }
 .yellow { background: #f1c40f; color: #333; }
 .blue { background: #3498db; }
 
-.btn-full { width: 100%; background: #2c3e50; color: white; margin-top: 10px; }
+.btn-full { 
+    width: 100%; background: #2c3e50; color: white; 
+    padding: 12px; border: none; border-radius: 5px; 
+    cursor: pointer; margin-top: 5px; font-weight: 600;
+}
 .btn-full:hover { background: #1a252f; }
 
-
-/* Add to static/style.css */
-
-.popup-form {
-    display: flex; flex-direction: column; gap: 5px; min-width: 180px;
-}
-.popup-form input {
-    padding: 4px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px;
-}
-.popup-actions {
-    display: flex; gap: 5px; margin-top: 5px;
-}
-.btn-save {
-    background: #2ecc71; color: white; border: none; padding: 5px; 
-    border-radius: 3px; cursor: pointer; flex: 1;
-}
-.btn-del {
-    background: #e74c3c; color: white; border: none; padding: 5px; 
-    border-radius: 3px; cursor: pointer; flex: 1;
-}
-.coords {
-    font-size: 10px; color: #999; margin-top: 2px;
+.btn-secondary {
+    display: block; text-align: center; 
+    background: #ecf0f1; color: #7f8c8d; padding: 10px;
+    border-radius: 5px; text-decoration: none; font-size: 0.9em;
+    margin-top: auto; /* Pushes it to bottom if space permits */
 }
 
-/* Custom Marker Pin */
-.custom-pin {
-    display: flex; justify-content: center; align-items: center;
-}
+/* 6. Popup Form Styling */
+.popup-form { display: flex; flex-direction: column; gap: 8px; min-width: 200px; }
+.popup-form input { padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
+.popup-actions { display: flex; gap: 5px; margin-top: 5px; }
+.btn-save { background: #2ecc71; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; flex: 1; }
+.btn-del { background: #e74c3c; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; flex: 1; }
+
+/* 7. Scrollbar Styling (Optional, for chrome/safari) */
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-track { background: #f1f1f1; }
+.sidebar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
