@@ -110,3 +110,69 @@ input[type=range] { width: 100%; }
 .btn-full:hover { background: #1a252f; }
 
 .btn-secondary { display: block; text-align: center; background: #
+
+/* Add/Update these sections in your style.css */
+
+/* 1. Custom Cursor for Builder Mode */
+.crosshair-cursor-enabled {
+    cursor: crosshair !important;
+}
+
+/* 2. Density Control Layout */
+.density-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.density-control input[type="number"] {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.unit {
+    font-size: 0.9em;
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+/* 3. Action Buttons (Calculate/Hide) */
+.btn-action {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: 0.2s;
+}
+
+.primary { background: #3498db; color: white; }
+.primary:hover { background: #2980b9; }
+
+.secondary { background: #ecf0f1; color: #7f8c8d; }
+.secondary:hover { background: #dcdcdc; }
+
+/* 4. Builder Dropdown */
+#builderService {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    background: white;
+    font-size: 0.9em;
+}
+
+/* 5. Icons in Buttons (Optional fix) */
+i { pointer-events: none; }
