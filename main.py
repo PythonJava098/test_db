@@ -17,7 +17,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 os.makedirs("uploads", exist_ok=True)
 
-# ... (Home & Dashboard routes same as before) ...
+# --- ROUTES ---
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -27,10 +28,23 @@ def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.post("/upload")
-async def upload_file(category: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_file(
+    category: str = Form(...), 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    # 1. CLEAR OLD DATA (Make DB Temporary)
+    # This deletes all existing rows so the new upload is a fresh start.
+    db.query(UrbanResource).delete()
+    db.commit()
+
+    # 2. Save and Process New File
     file_location = f"uploads/{file.filename}"
-    with open(file_location, "wb+") as f: shutil.copyfileobj(file.file, f)
+    with open(file_location, "wb+") as f:
+        shutil.copyfileobj(file.file, f)
+        
     process_shapefile(file_location, category, db)
+    
     return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.get("/api/resources")
@@ -39,6 +53,7 @@ def get_resources(density: int = 1000, db: Session = Depends(get_db)):
     data = []
     for r in resources:
         rng = 0
+        # Only calculate range for points, not custom polygons
         if r.geom_type == 'point':
             rng = calculate_dynamic_range(r.category, r.capacity, density)
         
@@ -58,44 +73,33 @@ def get_resources(density: int = 1000, db: Session = Depends(get_db)):
 @app.post("/api/add")
 def add_service(data: dict, db: Session = Depends(get_db)):
     """Handles adding Points OR Polygons"""
-    
-    # CASE 1: Polygon (Used for Project Boundary)
     if data.get("geom_type") == "polygon":
-        # 'coordinates' is expected from the frontend
         coords_json = json.dumps(data.get("coordinates"))
-        
         new_res = UrbanResource(
-            name=data.get("name"), 
-            category=data["category"], 
-            geom_type="polygon", 
-            shape_data=coords_json,
+            name=data.get("name"), category=data["category"], 
+            geom_type="polygon", shape_data=coords_json,
             capacity=data.get("capacity", 50)
         )
-        
-    # CASE 2: Point (Standard Service)
     else:
         new_res = UrbanResource(
-            name=data.get("name"), 
-            category=data["category"], 
-            geom_type="point", 
-            latitude=data["lat"], 
-            longitude=data["lon"],
+            name=data.get("name"), category=data["category"], 
+            geom_type="point", latitude=data["lat"], longitude=data["lon"],
             capacity=data.get("capacity", 50)
         )
-        
     db.add(new_res)
     db.commit()
     return {"message": "Added"}
 
-# ... (Update/Delete/Export routes same as previous, just ensure they exist) ...
 @app.put("/api/update/{resource_id}")
 def update_service(resource_id: int, data: dict, db: Session = Depends(get_db)):
     resource = db.query(UrbanResource).filter(UrbanResource.id == resource_id).first()
     if not resource: raise HTTPException(status_code=404)
+    
     if "name" in data: resource.name = data["name"]
     if "capacity" in data: resource.capacity = data["capacity"]
     if "lat" in data: resource.latitude = data["lat"]
     if "lon" in data: resource.longitude = data["lon"]
+    
     db.commit()
     return {"message": "Updated"}
 
@@ -104,17 +108,15 @@ def delete_service(resource_id: int, db: Session = Depends(get_db)):
     db.query(UrbanResource).filter(UrbanResource.id == resource_id).delete()
     db.commit()
     return {"message": "Deleted"}
-    
+
 @app.get("/api/export")
 def export_data(db: Session = Depends(get_db)):
     resources = db.query(UrbanResource).all()
     features = []
     for r in resources:
         if r.geom_type == 'polygon' and r.shape_data:
-            # For GeoJSON, coords are [lon, lat], but we stored [lat, lon], so swap back
             latlon = json.loads(r.shape_data)
             lonlat = [[p[1], p[0]] for p in latlon]
-            # Ensure closed loop
             if lonlat[0] != lonlat[-1]: lonlat.append(lonlat[0])
             geo = {"type": "Polygon", "coordinates": [lonlat]}
         else:
@@ -127,4 +129,4 @@ def export_data(db: Session = Depends(get_db)):
     
     file_path = "uploads/export.geojson"
     with open(file_path, "w") as f: json.dump({"type": "FeatureCollection", "features": features}, f)
-    return FileResponse(file_path, filename="smart_city.geojson")
+    return FileResponse(file_path, filename="smart_city_plan.geojson")
