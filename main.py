@@ -11,6 +11,12 @@ from database import engine, Base, get_db
 from models import UrbanResource
 from utils import process_shapefile, calculate_dynamic_range
 
+import tempfile
+import zipfile
+import geopandas as gpd
+from shapely.geometry import Point, Polygon
+from fastapi.background import BackgroundTasks
+
 # Create tables (will add session_id column if dropping/recreating)
 Base.metadata.create_all(bind=engine)
 
@@ -154,27 +160,81 @@ def delete_service(resource_id: int, request: Request, db: Session = Depends(get
     db.commit()
     return {"message": "Deleted"}
 
-@app.get("/api/export")
-def export_data(request: Request, db: Session = Depends(get_db)):
+def remove_file(path: str):
+    try:
+        if os.path.exists(path):
+            if os.path.isdir(path): shutil.rmtree(path)
+            else: os.remove(path)
+    except Exception as e:
+        print(f"Error removing file {path}: {e}")
+
+@app.get("/api/export_shp")
+def export_shapefile(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     session_id = request.cookies.get("urban_session")
-    # FILTER: Export only my data
+    if not session_id: return Response(status_code=403)
+
+    # 1. Fetch Data
     resources = db.query(UrbanResource).filter(UrbanResource.session_id == session_id).all()
+    if not resources:
+        return Response(content="No data to export", status_code=404)
+
+    # 2. Convert to GeoPandas DataFrame
+    data = []
+    geometries = []
     
-    features = []
     for r in resources:
+        # Create properties dict
+        props = {
+            "name": r.name or "Unknown",
+            "category": r.category or "misc",
+            "capacity": r.capacity
+        }
+        
+        # Create Geometry
         if r.geom_type == 'polygon' and r.shape_data:
-            latlon = json.loads(r.shape_data)
-            lonlat = [[p[1], p[0]] for p in latlon]
-            if lonlat[0] != lonlat[-1]: lonlat.append(lonlat[0])
-            geo = {"type": "Polygon", "coordinates": [lonlat]}
+            try:
+                # shape_data is "[[lat,lon], [lat,lon]...]"
+                latlon = json.loads(r.shape_data)
+                # Swap to [lon, lat] for GIS
+                lonlat = [(p[1], p[0]) for p in latlon]
+                geometries.append(Polygon(lonlat))
+                data.append(props)
+            except: pass
         else:
-            geo = {"type": "Point", "coordinates": [r.longitude, r.latitude]}
-            
-        features.append({
-            "type": "Feature", "geometry": geo,
-            "properties": {"name": r.name, "category": r.category, "capacity": r.capacity}
-        })
+            # Point
+            geometries.append(Point(r.longitude, r.latitude))
+            data.append(props)
+
+    if not data: return Response(content="No valid geometry found", status_code=400)
+
+    # Create GeoDataFrame
+    gdf = gpd.GeoDataFrame(data, geometry=geometries, crs="EPSG:4326")
+
+    # 3. Write to Temp Shapefile
+    # We create a temporary directory to hold the .shp, .shx, .dbf, etc.
+    tmp_dir = tempfile.mkdtemp()
+    shp_path = os.path.join(tmp_dir, "urban_resources.shp")
     
-    file_path = f"uploads/{session_id}_export.geojson"
-    with open(file_path, "w") as f: json.dump({"type": "FeatureCollection", "features": features}, f)
-    return FileResponse(file_path, filename="smart_city_plan.geojson")
+    try:
+        gdf.to_file(shp_path, driver="ESRI Shapefile")
+    except Exception as e:
+        shutil.rmtree(tmp_dir)
+        return Response(content=f"Export failed: {e}", status_code=500)
+
+    # 4. Zip the Shapefile components
+    zip_filename = f"uploads/{session_id}_export.zip"
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        for filename in os.listdir(tmp_dir):
+            file_path = os.path.join(tmp_dir, filename)
+            zipf.write(file_path, arcname=filename)
+
+    # 5. Cleanup Temp Folder (we keep the zip to send it)
+    shutil.rmtree(tmp_dir)
+
+    # 6. Send File & Schedule Cleanup of Zip
+    background_tasks.add_task(remove_file, zip_filename)
+    return FileResponse(
+        zip_filename, 
+        media_type="application/zip", 
+        filename="UrbanMind_Export.zip"
+    )
