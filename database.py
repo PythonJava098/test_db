@@ -1,55 +1,45 @@
 import os
-import libsql_experimental as libsql
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
-# Load env vars
-load_dotenv(override=True)
+# 1. Load Environment Variables
+load_dotenv()
 
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-# --- CUSTOM WRAPPER CLASS ---
-class LibSQLConnectionWrapper:
-    """
-    Wraps the Turso (libsql) connection to add the missing 'create_function'
-    method that SQLAlchemy expects.
-    """
-    def __init__(self, connection):
-        self._conn = connection
-
-    def create_function(self, *args, **kwargs):
-        # SQLAlchemy calls this to register Regex functions. 
-        # We silently ignore it because libsql doesn't support it yet.
-        pass
-
-    def __getattr__(self, name):
-        # Forward all other calls (cursor, commit, close, etc.) to the real connection
-        return getattr(self._conn, name)
-
-print("------------------------------------------------")
+# 2. Configure the Database URL
 if TURSO_URL and TURSO_TOKEN:
-    print(f"🔌 CONNECTING TO TURSO: {TURSO_URL}")
+    # Turso gives "libsql://...", but SQLAlchemy needs "sqlite+libsql://..."
+    if TURSO_URL.startswith("libsql://"):
+        TURSO_URL = TURSO_URL.replace("libsql://", "sqlite+libsql://")
     
-    def get_conn():
-        # 1. Connect to Turso
-        raw_conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
-        # 2. Wrap it in our custom class
-        return LibSQLConnectionWrapper(raw_conn)
+    # Attach the token to the URL securely
+    DATABASE_URL = f"{TURSO_URL}?authToken={TURSO_TOKEN}"
     
-    # Use standard sqlite dialect + our wrapper
-    DATABASE_URL = "sqlite://"
-    engine = create_engine(DATABASE_URL, creator=get_conn, connect_args={"check_same_thread": False})
+    # Create Engine for Turso (Remote)
+    # Note: connect_args={"check_same_thread": False} is NOT needed for Turso/LibSQL
+    engine = create_engine(DATABASE_URL)
+    
+    print("------------------------------------------------")
+    print("✅  DATABASE CONNECTED: Using Turso Cloud ☁️")
+    print("------------------------------------------------")
+
 else:
-    print("⚠️  TURSO VARS NOT FOUND. USING LOCAL SQLITE.")
+    # Fallback to local file if no env vars found (Safety Net)
     DATABASE_URL = "sqlite:///./local_city.db"
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-print("------------------------------------------------")
+    
+    print("------------------------------------------------")
+    print("⚠️  WARNING: Using LOCAL SQLite (No Turso Credentials Found)")
+    print("------------------------------------------------")
 
+# 3. Create Session and Base
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# 4. Dependency
 def get_db():
     db = SessionLocal()
     try:
