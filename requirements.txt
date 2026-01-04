@@ -5,6 +5,6 @@ geopandas
 shapely
 python-multipart
 python-dotenv
-libsql-client
 jinja2
 httpx
+libsql-experimental
