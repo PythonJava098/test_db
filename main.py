@@ -59,31 +59,33 @@ def dashboard(request: Request):
 
 @app.post("/upload")
 async def upload_file(
-    response: Response,
     request: Request,
     category: str = Form(...), 
     file: UploadFile = File(...), 
     db: Session = Depends(get_db)
 ):
-    # Get Session ID
+    # 1. GET OR CREATE SESSION ID
     session_id = request.cookies.get("urban_session")
     if not session_id:
         session_id = str(uuid.uuid4())
-        response.set_cookie(key="urban_session", value=session_id)
 
-    # 1. SCOPED DELETE: Only delete THIS user's data
+    # 2. CLEAR OLD DATA (Scoped to this session)
     db.query(UrbanResource).filter(UrbanResource.session_id == session_id).delete()
     db.commit()
 
-    # 2. Save and Process New File
-    file_location = f"uploads/{session_id}_{file.filename}" # Prefix filename to avoid collisions
+    # 3. SAVE FILE
+    file_location = f"uploads/{session_id}_{file.filename}"
     with open(file_location, "wb+") as f:
         shutil.copyfileobj(file.file, f)
         
-    # Pass session_id to utils
+    # 4. PROCESS FILE (Turbo Mode)
+    # Ensure utils.py is printing errors if this fails!
     process_shapefile(file_location, category, db, session_id)
     
-    return RedirectResponse(url="/dashboard", status_code=303)
+    # 5. REDIRECT WITH COOKIE (The Critical Fix)
+    response = RedirectResponse(url="/dashboard", status_code=303)
+    response.set_cookie(key="urban_session", value=session_id, max_age=86400)
+    return response
 
 @app.get("/api/resources")
 def get_resources(request: Request, density: int = 1000, db: Session = Depends(get_db)):
