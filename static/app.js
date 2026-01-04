@@ -6,7 +6,10 @@ google.charts.load('current', {'packages':['corechart']});
 google.charts.setOnLoadCallback(() => calculateCoverage());
 
 // Layers
-let markerLayer = L.layerGroup().addTo(map);
+let markerLayer = L.markerClusterGroup({
+    disableClusteringAtZoom: 16, // Show actual pins when zoomed in close
+    spiderfyOnMaxZoom: false
+}).addTo(map);
 let unionLayer = L.layerGroup().addTo(map);
 let polyLayer = L.layerGroup().addTo(map);
 let boundaryLayer = new L.FeatureGroup().addTo(map);
