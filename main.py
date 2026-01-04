@@ -59,31 +59,33 @@ def dashboard(request: Request):
 
 @app.post("/upload")
 async def upload_file(
-    response: Response,
     request: Request,
     category: str = Form(...), 
     file: UploadFile = File(...), 
     db: Session = Depends(get_db)
 ):
-    # Get Session ID
+    # 1. GET OR CREATE SESSION ID
     session_id = request.cookies.get("urban_session")
     if not session_id:
         session_id = str(uuid.uuid4())
-        response.set_cookie(key="urban_session", value=session_id)
 
-    # 1. SCOPED DELETE: Only delete THIS user's data
+    # 2. CLEAR OLD DATA (Scoped to this session)
     db.query(UrbanResource).filter(UrbanResource.session_id == session_id).delete()
     db.commit()
 
-    # 2. Save and Process New File
-    file_location = f"uploads/{session_id}_{file.filename}" # Prefix filename to avoid collisions
+    # 3. SAVE FILE
+    file_location = f"uploads/{session_id}_{file.filename}"
     with open(file_location, "wb+") as f:
         shutil.copyfileobj(file.file, f)
         
-    # Pass session_id to utils
+    # 4. PROCESS FILE (Turbo Mode)
+    # Ensure utils.py is printing errors if this fails!
     process_shapefile(file_location, category, db, session_id)
     
-    return RedirectResponse(url="/dashboard", status_code=303)
+    # 5. REDIRECT WITH COOKIE (The Critical Fix)
+    response = RedirectResponse(url="/dashboard", status_code=303)
+    response.set_cookie(key="urban_session", value=session_id, max_age=86400)
+    return response
 
 @app.get("/api/resources")
 def get_resources(request: Request, density: int = 1000, db: Session = Depends(get_db)):
@@ -178,61 +180,58 @@ def export_shapefile(request: Request, background_tasks: BackgroundTasks, db: Se
     if not resources:
         return Response(content="No data to export", status_code=404)
 
-    # 2. Convert to GeoPandas DataFrame
-    data = []
-    geometries = []
+    # 2. Separate Points and Polygons
+    point_data, point_geoms = [], []
+    poly_data, poly_geoms = [], []
     
     for r in resources:
-        # Create properties dict
         props = {
             "name": r.name or "Unknown",
             "category": r.category or "misc",
             "capacity": r.capacity
         }
         
-        # Create Geometry
         if r.geom_type == 'polygon' and r.shape_data:
             try:
-                # shape_data is "[[lat,lon], [lat,lon]...]"
                 latlon = json.loads(r.shape_data)
-                # Swap to [lon, lat] for GIS
-                lonlat = [(p[1], p[0]) for p in latlon]
-                geometries.append(Polygon(lonlat))
-                data.append(props)
+                lonlat = [(p[1], p[0]) for p in latlon] # Swap for GIS
+                poly_geoms.append(Polygon(lonlat))
+                poly_data.append(props)
             except: pass
         else:
-            # Point
-            geometries.append(Point(r.longitude, r.latitude))
-            data.append(props)
+            # It is a Point
+            point_geoms.append(Point(r.longitude, r.latitude))
+            point_data.append(props)
 
-    if not data: return Response(content="No valid geometry found", status_code=400)
-
-    # Create GeoDataFrame
-    gdf = gpd.GeoDataFrame(data, geometry=geometries, crs="EPSG:4326")
-
-    # 3. Write to Temp Shapefile
-    # We create a temporary directory to hold the .shp, .shx, .dbf, etc.
+    # 3. Create Temp Directory
     tmp_dir = tempfile.mkdtemp()
-    shp_path = os.path.join(tmp_dir, "urban_resources.shp")
-    
+
     try:
-        gdf.to_file(shp_path, driver="ESRI Shapefile")
+        # 4. Save Points Shapefile (if any)
+        if point_data:
+            gdf_points = gpd.GeoDataFrame(point_data, geometry=point_geoms, crs="EPSG:4326")
+            gdf_points.to_file(os.path.join(tmp_dir, "urban_points.shp"), driver="ESRI Shapefile")
+
+        # 5. Save Polygons Shapefile (if any)
+        if poly_data:
+            gdf_poly = gpd.GeoDataFrame(poly_data, geometry=poly_geoms, crs="EPSG:4326")
+            gdf_poly.to_file(os.path.join(tmp_dir, "urban_boundaries.shp"), driver="ESRI Shapefile")
+
     except Exception as e:
         shutil.rmtree(tmp_dir)
         return Response(content=f"Export failed: {e}", status_code=500)
 
-    # 4. Zip the Shapefile components
+    # 6. Zip Everything
     zip_filename = f"uploads/{session_id}_export.zip"
     with zipfile.ZipFile(zip_filename, 'w') as zipf:
         for filename in os.listdir(tmp_dir):
             file_path = os.path.join(tmp_dir, filename)
             zipf.write(file_path, arcname=filename)
 
-    # 5. Cleanup Temp Folder (we keep the zip to send it)
+    # Cleanup
     shutil.rmtree(tmp_dir)
-
-    # 6. Send File & Schedule Cleanup of Zip
     background_tasks.add_task(remove_file, zip_filename)
+    
     return FileResponse(
         zip_filename, 
         media_type="application/zip", 
