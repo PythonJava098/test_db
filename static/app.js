@@ -6,7 +6,10 @@ google.charts.load('current', {'packages':['corechart']});
 google.charts.setOnLoadCallback(() => calculateCoverage());
 
 // Layers
-let markerLayer = L.layerGroup().addTo(map);
+let markerLayer = L.markerClusterGroup({
+    disableClusteringAtZoom: 16, // Show actual pins when zoomed in close
+    spiderfyOnMaxZoom: false
+}).addTo(map);
 let unionLayer = L.layerGroup().addTo(map);
 let polyLayer = L.layerGroup().addTo(map);
 let boundaryLayer = new L.FeatureGroup().addTo(map);
@@ -111,14 +114,24 @@ function updateVisuals(data, showRanges) {
 
         // Union Logic
         if (showRanges && rangePolys.length > 0) {
-            try {
-                let merged = rangePolys[0];
-                for(let i=1; i<rangePolys.length; i++) merged = turf.union(merged, rangePolys[i]);
-                L.geoJSON(merged, {
-                    style: { color: color, fillColor: color, fillOpacity: 0.15, weight: 1 },
-                    interactive: false
-                }).addTo(unionLayer);
-            } catch(e) {}
+            if (rangePolys.length < 300) {
+                try {
+                    let merged = rangePolys[0];
+                    for(let i=1; i<rangePolys.length; i++) merged = turf.union(merged, rangePolys[i]);
+                    L.geoJSON(merged, {
+                        style: { color: color, fillColor: color, fillOpacity: 0.15, weight: 1 },
+                        interactive: false
+                    }).addTo(unionLayer);
+                } catch(e) { console.warn("Union failed", e); }
+            } else {
+                // Too many points? Just draw simple circles without merging (faster)
+                rangePolys.forEach(poly => {
+                    L.geoJSON(poly, {
+                         style: { color: color, fillColor: color, fillOpacity: 0.1, weight: 0 },
+                         interactive: false
+                    }).addTo(unionLayer);
+                });
+            }
         }
     });
 
