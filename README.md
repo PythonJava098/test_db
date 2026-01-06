@@ -1,7 +1,7 @@
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TD
+flowchart TD
     %% --- STYLING ---
     classDef frontend fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
     classDef backend fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
@@ -55,9 +55,9 @@ graph TD
     AppJS -->|Renders Stats| GCharts
 
     %% Frontend to Backend API
-    AppJS <-->|HTTP fetch (JSON)| API_Routes
+    AppJS <-->|"HTTP fetch (JSON)"| API_Routes
 
-    %% Shapefile Upload Flow (The Heavy Lifting)
+    %% Shapefile Upload Flow
     Shapefile_Input -->|POST Form Data| Upload_Route
     Upload_Route -->|Passes file path & session| Utils
     Utils -->|Parses & Reprojects CRS| GeoPandas
