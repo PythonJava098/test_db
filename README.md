@@ -1,3 +1,6 @@
+## 🏗️ System Architecture
+
+```mermaid
 graph TD
     %% --- STYLING ---
     classDef frontend fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
